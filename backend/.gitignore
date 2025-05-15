@@ -1,0 +1,4 @@
+.env
+node_modules/
+logs/
+sats-jar-firebase-adminsdk-fbsvc-07af2ecd3f.json

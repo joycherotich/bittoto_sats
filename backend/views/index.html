@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sats Jar Payment Tester</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      .payment-section {
+        display: none;
+      }
+      .active {
+        display: block;
+      }
+      #qrcode img {
+        margin: 0 auto;
+        display: block;
+      }
+      .loading {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(0, 0, 0, 0.3);
+        border-radius: 50%;
+        border-top-color: #007bff;
+        animation: spin 1s ease-in-out infinite;
+      }
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container mt-5">
+      <h1 class="text-center mb-4">Sats Jar Payment Tester</h1>
+
+      <!-- Login Section -->
+      <div id="login-section" class="payment-section active">
+        <div class="card">
+          <div class="card-header">
+            <h3>Login</h3>
+          </div>
+          <div class="card-body">
+            <form id="login-form">
+              <div class="mb-3">
+                <label for="phone" class="form-label">Phone Number</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="phone"
+                  placeholder="+254712345678"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="pin" class="form-label">PIN</label>
+                <input type="password" class="form-control" id="pin" required />
+              </div>
+              <button type="submit" class="btn btn-primary">Login</button>
+              <div id="login-error" class="text-danger mt-2"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dashboard Section -->
+      <div id="dashboard-section" class="payment-section">
+        <div class="card mb-4">
+          <div
+            class="card-header d-flex justify-content-between align-items-center"
+          >
+            <h3>Wallet</h3>
+            <button id="refresh-balance" class="btn btn-sm btn-outline-primary">
+              Refresh
+            </button>
+          </div>
+          <div class="card-body">
+            <h4>Balance: <span id="balance">0</span> sats</h4>
+            <div class="d-flex justify-content-between mt-4">
+              <button id="show-lightning" class="btn btn-primary">
+                Lightning Payment
+              </button>
+              <button id="show-mpesa" class="btn btn-success">
+                M-Pesa Payment
+              </button>
+              <button id="show-history" class="btn btn-info">
+                Transaction History
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lightning Payment Section -->
+      <div id="lightning-section" class="payment-section">
+        <div class="card">
+          <div
+            class="card-header d-flex justify-content-between align-items-center"
+          >
+            <h3>Lightning Payment</h3>
+            <button
+              id="back-from-lightning"
+              class="btn btn-sm btn-outline-secondary"
+            >
+              Back
+            </button>
+          </div>
+          <div class="card-body">
+            <form id="invoice-form">
+              <div class="mb-3">
+                <label for="amount" class="form-label">Amount (sats)</label>
+                <input
+                  type="number"
+                  class="form-control"
+                  id="amount"
+                  min="1"
+                  value="100"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="memo" class="form-label">Memo (optional)</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="memo"
+                  placeholder="Test payment"
+                />
+              </div>
+              <button type="submit" class="btn btn-primary">
+                Create Invoice
+              </button>
+            </form>
+
+            <div id="invoice-result" class="mt-4" style="display: none">
+              <h4 class="text-center mb-3">Scan to Pay</h4>
+              <div id="qrcode" class="text-center mb-3"></div>
+              <div class="mb-3">
+                <label class="form-label">Payment Request</label>
+                <div class="input-group">
+                  <input
+                    type="text"
+                    id="payment-request"
+                    class="form-control"
+                    readonly
+                  />
+                  <button
+                    class="btn btn-outline-secondary"
+                    type="button"
+                    id="copy-request"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Payment Hash</label>
+                <input
+                  type="text"
+                  id="payment-hash"
+                  class="form-control"
+                  readonly
+                />
+              </div>
+              <div class="d-grid gap-2">
+                <button id="check-payment" class="btn btn-success">
+                  Check Payment Status
+                </button>
+              </div>
+              <div
+                id="payment-status"
+                class="alert mt-3"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- M-Pesa Payment Section -->
+      <div id="mpesa-section" class="payment-section">
+        <div class="card">
+          <div
+            class="card-header d-flex justify-content-between align-items-center"
+          >
+            <h3>M-Pesa Payment</h3>
+            <button
+              id="back-from-mpesa"
+              class="btn btn-sm btn-outline-secondary"
+            >
+              Back
+            </button>
+          </div>
+          <div class="card-body">
+            <form id="mpesa-form">
+              <div class="mb-3">
+                <label for="mpesa-phone" class="form-label">Phone Number</label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="mpesa-phone"
+                  placeholder="254712345678"
+                  required
+                />
+              </div>
+              <div class="mb-3">
+                <label for="mpesa-amount" class="form-label"
+                  >Amount (KES)</label
+                >
+                <input
+                  type="number"
+                  class="form-control"
+                  id="mpesa-amount"
+                  min="1"
+                  value="50"
+                  required
+                />
+              </div>
+              <button type="submit" class="btn btn-success">
+                Initiate STK Push
+              </button>
+            </form>
+
+            <div id="mpesa-result" class="mt-4" style="display: none">
+              <div class="alert alert-info">
+                <p>
+                  STK Push initiated. Please check your phone to complete the
+                  payment.
+                </p>
+                <p>Transaction ID: <span id="transaction-id"></span></p>
+              </div>
+              <div class="d-grid gap-2">
+                <button id="check-mpesa" class="btn btn-success">
+                  Check Payment Status
+                </button>
+              </div>
+              <div
+                id="mpesa-status"
+                class="alert mt-3"
+                style="display: none"
+              ></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Transaction History Section -->
+      <div id="history-section" class="payment-section">
+        <div class="card">
+          <div
+            class="card-header d-flex justify-content-between align-items-center"
+          >
+            <h3>Transaction History</h3>
+            <button
+              id="back-from-history"
+              class="btn btn-sm btn-outline-secondary"
+            >
+              Back
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="table-responsive">
+              <table class="table table-striped">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                    <th>Description</th>
+                  </tr>
+                </thead>
+                <tbody id="transactions-table">
+                  <tr>
+                    <td colspan="4" class="text-center">
+                      Loading transactions...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
