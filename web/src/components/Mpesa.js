@@ -1,0 +1,798 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Wallet, AlertCircle, CheckCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/UserAuthContext';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+// Constants
+const API_URL = 'http://localhost:3000/api';
+
+/**
+ * Mpesa component - Adapted directly from the working app.js code
+ */
+const Mpesa = ({ onBack }) => {
+  // State
+  const [loading, setLoading] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [transactionId, setTransactionId] = useState(null);
+  const [paymentStatus, setPaymentStatus] = useState(null);
+  const { toast } = useToast();
+  const { token } = useAuth();
+
+  // API request helper - directly from app.js
+  const apiRequest = async (endpoint, method = 'GET', data = null) => {
+    try {
+      const options = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+
+      if (token) {
+        options.headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      if (data) {
+        options.body = JSON.stringify(data);
+      }
+
+      console.log(`Making ${method} request to ${API_URL}${endpoint}`, options);
+      const response = await fetch(`${API_URL}${endpoint}`, options);
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'API request failed');
+      }
+
+      return result;
+    } catch (error) {
+      console.error('API Error:', error);
+      throw error;
+    }
+  };
+
+  // Initialize component
+  useEffect(() => {
+    // Create transaction ID element if it doesn't exist
+    if (!document.getElementById('transaction-id')) {
+      const transactionIdElement = document.createElement('div');
+      transactionIdElement.id = 'transaction-id';
+      transactionIdElement.style.display = 'none';
+      document.body.appendChild(transactionIdElement);
+    }
+  }, []);
+
+  // Handle M-Pesa form submission
+  const handleMpesaSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setPaymentStatus('pending');
+
+    try {
+      const phoneNumber = document.getElementById('mpesa-phone').value;
+      const amount = document.getElementById('mpesa-amount').value;
+
+      if (!phoneNumber || !amount) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'Please fill in all fields',
+        });
+        setLoading(false);
+        return;
+      }
+
+      console.log('Submitting M-Pesa payment:', { phoneNumber, amount });
+      
+      const result = await apiRequest('/payments/mpesa/stk-push', 'POST', {
+        phoneNumber,
+        amount: parseInt(amount),
+      });
+
+      console.log('M-Pesa API response:', result);
+      
+      // Store transaction ID
+      const txId = result.transactionId || result.checkoutRequestId;
+      if (!txId) {
+        throw new Error('Transaction ID not found in response');
+      }
+      
+      setTransactionId(txId);
+      
+      // Update hidden transaction ID element
+      const transactionIdElement = document.getElementById('transaction-id');
+      if (transactionIdElement) {
+        transactionIdElement.textContent = txId;
+      }
+
+      toast({
+        title: 'M-Pesa Request Sent',
+        description: 'Please check your phone for the M-Pesa prompt',
+      });
+    } catch (error) {
+      console.error('M-Pesa payment error:', error);
+      setPaymentStatus('failed');
+      toast({
+        variant: 'destructive',
+        title: 'Payment Failed',
+        description: error.message || 'Could not process M-Pesa payment',
+      });
+      setTransactionId(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Check M-Pesa payment status
+  const checkMpesaStatus = async () => {
+    if (!transactionId) {
+      const transactionIdElement = document.getElementById('transaction-id');
+      if (transactionIdElement && transactionIdElement.textContent) {
+        setTransactionId(transactionIdElement.textContent);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: 'No transaction ID found',
+        });
+        return;
+      }
+    }
+
+    setCheckingStatus(true);
+    const statusElement = document.getElementById('mpesa-status-message');
+    
+    if (statusElement) {
+      statusElement.innerHTML = '<span class="loading"></span> Checking payment status...';
+      statusElement.className = 'text-sm text-amber-600 mt-2 mb-2';
+    }
+
+    try {
+      const result = await apiRequest(`/payments/status/${transactionId}`);
+      console.log('Payment status response:', result);
+
+      if (result.status === 'completed') {
+        setPaymentStatus('completed');
+        if (statusElement) {
+          statusElement.textContent = 'Payment completed! Your balance has been updated.';
+          statusElement.className = 'text-sm text-green-600 mt-2 mb-2';
+        }
+        toast({
+          title: 'Payment Completed!',
+          description: 'Your balance has been updated.',
+        });
+      } else if (result.status === 'failed') {
+        setPaymentStatus('failed');
+        if (statusElement) {
+          statusElement.textContent = 'Payment failed: ' + (result.resultDesc || 'Unknown error');
+          statusElement.className = 'text-sm text-red-600 mt-2 mb-2';
+        }
+        toast({
+          variant: 'destructive',
+          title: 'Payment Failed',
+          description: result.resultDesc || 'Unknown error',
+        });
+      } else {
+        // Still pending
+        if (statusElement) {
+          statusElement.textContent = 'Payment is still pending. Please check your phone and complete the payment.';
+          statusElement.className = 'text-sm text-amber-600 mt-2 mb-2';
+        }
+        toast({
+          title: 'Payment Pending',
+          description: 'The payment has not been completed yet. Please check your phone and complete the payment.',
+        });
+      }
+    } catch (error) {
+      console.error('Error checking payment status:', error);
+      if (statusElement) {
+        statusElement.textContent = 'Error checking payment: ' + error.message;
+        statusElement.className = 'text-sm text-red-600 mt-2 mb-2';
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Error Checking Payment',
+        description: error.message || 'Could not check payment status',
+      });
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  const resetPayment = () => {
+    // Reset form fields
+    const phoneInput = document.getElementById('mpesa-phone');
+    const amountInput = document.getElementById('mpesa-amount');
+    if (phoneInput) phoneInput.value = '';
+    if (amountInput) amountInput.value = '';
+    
+    // Reset state
+    setTransactionId(null);
+    setPaymentStatus(null);
+    
+    // Reset transaction ID element
+    const transactionIdElement = document.getElementById('transaction-id');
+    if (transactionIdElement) {
+      transactionIdElement.textContent = '';
+    }
+  };
+
+  // Render the completed payment view
+  const renderMpesaCompleted = () => (
+    <Card>
+      <CardContent className="pt-6 pb-6">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <CheckCircle className="h-16 w-16 text-green-500" />
+          <h3 className="text-xl font-semibold">Payment Successful!</h3>
+          <p className="text-center text-muted-foreground">
+            Your deposit has been processed successfully.
+          </p>
+          <Button onClick={resetPayment} className="mt-4">
+            Make Another Deposit
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Render the payment in progress view
+  const renderMpesaInProgress = () => (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg font-medium">Payment in Progress</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Alert>
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertDescription>
+            An M-Pesa payment request has been sent to your phone. Please check your phone and complete the payment.
+          </AlertDescription>
+        </Alert>
+        <div className="flex flex-col space-y-4 items-center mpesa-status-container">
+          <p className="text-sm text-muted-foreground text-center">
+            Once you've completed the payment on your phone, click the button below to check the status.
+          </p>
+          <div id="mpesa-status-message" className="text-sm text-amber-600 mt-2 mb-2"></div>
+          <Button 
+            onClick={checkMpesaStatus}
+            disabled={checkingStatus}
+            className="w-full"
+          >
+            {checkingStatus ? (
+              <>
+                <span className="loading mr-2"></span>
+                Checking Status...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Check Payment Status
+              </>
+            )}
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={resetPayment}
+            className="w-full"
+          >
+            Cancel and Start Over
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
+  // Render the initial form view
+  const renderMpesaForm = () => (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg font-medium">Deposit via M-Pesa</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form id="mpesa-form" onSubmit={handleMpesaSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="mpesa-phone" className="text-sm font-medium">
+              M-Pesa Phone Number
+            </label>
+            <Input
+              id="mpesa-phone"
+              type="text"
+              placeholder="254712345678"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Enter the phone number registered with M-Pesa (format: 254XXXXXXXXX)
+            </p>
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="mpesa-amount" className="text-sm font-medium">
+              Amount (KES)
+            </label>
+            <Input
+              id="mpesa-amount"
+              type="number"
+              min="10"
+              step="1"
+              placeholder="100"
+              required
+            />
+            <p className="text-xs text-muted-foreground">
+              Minimum amount: 10 KES
+            </p>
+          </div>
+          
+          {/* Hidden field to store transaction ID */}
+          <div id="transaction-id" style={{ display: 'none' }}></div>
+          
+          {/* Status message container */}
+          <div className="mpesa-status-container">
+            <div id="mpesa-status-message" className="text-sm text-amber-600 mt-2 mb-2"></div>
+          </div>
+          
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading}
+          >
+            {loading ? (
+              <>
+                <span className="loading mr-2"></span>
+                Processing...
+              </>
+            ) : (
+              <>
+                <Wallet className="mr-2 h-4 w-4" />
+                Deposit with M-Pesa
+              </>
+            )}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+
+  return (
+    <div className="space-y-4 animate-fade-in">
+      <div className="flex items-center">
+        <Button variant="ghost" size="icon" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h2 className="text-xl font-semibold ml-2">M-Pesa Deposit</h2>
+      </div>
+
+      {paymentStatus === 'completed' ? 
+        renderMpesaCompleted() : 
+        transactionId ? 
+          renderMpesaInProgress() : 
+          renderMpesaForm()
+      }
+    </div>
+  );
+};
+
+export default Mpesa;
+
+
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ArrowLeft, Wallet, AlertCircle, CheckCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/UserAuthContext';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface MpesaPaymentProps {
+  onBack: () => void;
+}
+
+const MpesaPayment = ({ onBack }: MpesaPaymentProps) => {
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [amount, setAmount] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [transactionId, setTransactionId] = useState<string | null>(null);
+  const [checkingStatus, setCheckingStatus] = useState(false);
+  const [paymentStatus, setPaymentStatus] = useState<
+    'pending' | 'completed' | 'failed' | null
+  >(null);
+  const { toast } = useToast();
+  const { api, token } = useAuth();
+
+  // Direct implementation using fetch instead of API client
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('Form submitted'); // Debug form submission
+
+    if (!token) {
+      console.error('Authentication error: No token');
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'You are not authenticated. Please log in again.',
+      });
+      return;
+    }
+
+    if (!phoneNumber || !amount) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please fill in all fields',
+      });
+      return;
+    }
+
+    let formattedPhone = phoneNumber.replace(/\+/g, '');
+    if (formattedPhone.startsWith('0')) {
+      formattedPhone = '254' + formattedPhone.substring(1);
+    }
+    if (!formattedPhone.startsWith('254')) {
+      formattedPhone = '254' + formattedPhone;
+    }
+
+    const amountValue = parseInt(amount, 10);
+    if (isNaN(amountValue) || amountValue <= 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Please enter a valid amount',
+      });
+      return;
+    }
+
+    setLoading(true);
+    setPaymentStatus('pending');
+
+    try {
+      // Using direct fetch call like in app.js
+      const options = {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          phoneNumber: formattedPhone,
+          amount: amountValue,
+        }),
+      };
+
+      console.log('Sending M-Pesa request with options:', {
+        url: 'http://localhost:3000/api/payments/mpesa/stk-push',
+        options,
+      });
+
+      const response = await fetch(
+        'http://localhost:3000/api/payments/mpesa/stk-push',
+        options
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(
+            errorData.error || `HTTP error! status: ${response.status}`
+          );
+        } catch (e) {
+          throw new Error(
+            `HTTP error! status: ${response.status}, response: ${errorText}`
+          );
+        }
+      }
+
+      const result = await response.json();
+      console.log('M-Pesa API direct response:', result);
+
+      // Store transaction ID from response
+      const txId = result.transactionId || result.checkoutRequestId;
+      if (!txId) {
+        throw new Error('STK Push not initiated: Missing transaction ID');
+      }
+
+      setTransactionId(txId);
+
+      toast({
+        title: 'M-Pesa Request Sent',
+        description: `STK Push initiated. Please check your phone to complete the payment.`,
+      });
+    } catch (error) {
+      console.error('M-Pesa deposit error:', error);
+      setPaymentStatus('failed');
+      toast({
+        variant: 'destructive',
+        title: 'Payment Failed',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Could not process M-Pesa payment. Please try again.',
+      });
+      setTransactionId(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Direct implementation using fetch instead of API client
+  const checkPaymentStatus = async () => {
+    if (!token || !transactionId) return;
+
+    setCheckingStatus(true);
+
+    // Create a status message element for displaying status
+    const statusContainer = document.createElement('div');
+    statusContainer.id = 'mpesa-status-message';
+    statusContainer.className = 'text-sm text-amber-600 mt-2 mb-2';
+    statusContainer.textContent = 'Checking payment status...';
+
+    // Find the container to append the status message
+    const container = document.querySelector('.mpesa-status-container');
+    if (container) {
+      // Remove any existing status message
+      const existingStatus = document.getElementById('mpesa-status-message');
+      if (existingStatus) {
+        existingStatus.remove();
+      }
+      container.appendChild(statusContainer);
+    }
+
+    try {
+      // Using direct fetch call like in app.js
+      const options = {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      };
+
+      console.log('Checking payment status for transaction:', transactionId);
+
+      const response = await fetch(
+        `http://localhost:3000/api/payments/status/${transactionId}`,
+        options
+      );
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        try {
+          const errorData = JSON.parse(errorText);
+          throw new Error(
+            errorData.error || `HTTP error! status: ${response.status}`
+          );
+        } catch (e) {
+          throw new Error(
+            `HTTP error! status: ${response.status}, response: ${errorText}`
+          );
+        }
+      }
+
+      const result = await response.json();
+      console.log('Payment status direct response:', result);
+
+      if (result.status === 'completed') {
+        setPaymentStatus('completed');
+        if (statusContainer) {
+          statusContainer.textContent =
+            'Payment completed! Your balance has been updated.';
+          statusContainer.className = 'text-sm text-green-600 mt-2 mb-2';
+        }
+        toast({
+          title: 'Payment Completed!',
+          description: 'Your balance has been updated.',
+        });
+
+        // Reset form after successful payment
+        setPhoneNumber('');
+        setAmount('');
+      } else if (result.status === 'failed') {
+        setPaymentStatus('failed');
+        if (statusContainer) {
+          statusContainer.textContent =
+            'Payment failed: ' + (result.resultDesc || 'Unknown error');
+          statusContainer.className = 'text-sm text-red-600 mt-2 mb-2';
+        }
+        toast({
+          variant: 'destructive',
+          title: 'Payment Failed',
+          description: result.resultDesc || 'Unknown error',
+        });
+      } else {
+        // Still pending
+        if (statusContainer) {
+          statusContainer.textContent =
+            'Payment is still pending. Please check your phone and complete the payment.';
+          statusContainer.className = 'text-sm text-amber-600 mt-2 mb-2';
+        }
+        toast({
+          title: 'Payment Pending',
+          description:
+            'The payment has not been completed yet. Please check your phone and complete the payment.',
+        });
+      }
+    } catch (error) {
+      console.error('Error checking payment status:', error);
+      if (statusContainer) {
+        statusContainer.textContent =
+          'Error checking payment: ' +
+          (error instanceof Error ? error.message : 'Unknown error');
+        statusContainer.className = 'text-sm text-red-600 mt-2 mb-2';
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Error Checking Payment',
+        description:
+          error instanceof Error
+            ? error.message
+            : 'Could not check payment status',
+      });
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  const resetPayment = () => {
+    setPhoneNumber('');
+    setAmount('');
+    setTransactionId(null);
+    setPaymentStatus(null);
+  };
+
+  return (
+    <div className='space-y-4 animate-fade-in'>
+      <div className='flex items-center'>
+        <Button variant='ghost' size='icon' onClick={onBack}>
+          <ArrowLeft className='h-4 w-4' />
+        </Button>
+        <h2 className='text-xl font-semibold ml-2'>M-Pesa Deposit</h2>
+      </div>
+
+      {paymentStatus === 'completed' ? (
+        <Card>
+          <CardContent className='pt-6 pb-6'>
+            <div className='flex flex-col items-center justify-center space-y-4'>
+              <CheckCircle className='h-16 w-16 text-green-500' />
+              <h3 className='text-xl font-semibold'>Payment Successful!</h3>
+              <p className='text-center text-muted-foreground'>
+                Your deposit has been processed successfully.
+              </p>
+              <Button onClick={resetPayment} className='mt-4'>
+                Make Another Deposit
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : transactionId ? (
+        <Card>
+          <CardHeader className='pb-2'>
+            <CardTitle className='text-lg font-medium'>
+              Payment in Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent className='space-y-4'>
+            <Alert>
+              <AlertCircle className='h-4 w-4 mr-2' />
+              <AlertDescription>
+                An M-Pesa payment request has been sent to your phone. Please
+                check your phone and complete the payment.
+              </AlertDescription>
+            </Alert>
+            <div className='flex flex-col space-y-4 items-center mpesa-status-container'>
+              <p className='text-sm text-muted-foreground text-center'>
+                Once you've completed the payment on your phone, click the
+                button below to check the status.
+              </p>
+              <div
+                id='mpesa-status-message'
+                className='text-sm text-amber-600 mt-2 mb-2'
+              ></div>
+              <Button
+                onClick={checkPaymentStatus}
+                disabled={checkingStatus}
+                className='w-full'
+              >
+                {checkingStatus ? (
+                  <>
+                    <span className='loading mr-2'></span>
+                    Checking Status...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className='mr-2 h-4 w-4' />
+                    Check Payment Status
+                  </>
+                )}
+              </Button>
+              <Button
+                variant='outline'
+                onClick={resetPayment}
+                className='w-full'
+              >
+                Cancel and Start Over
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader className='pb-2'>
+            <CardTitle className='text-lg font-medium'>
+              Deposit via M-Pesa
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form id='mpesa-form' onSubmit={handleSubmit} className='space-y-4'>
+              <div className='space-y-2'>
+                <label htmlFor='mpesa-phone' className='text-sm font-medium'>
+                  M-Pesa Phone Number
+                </label>
+                <Input
+                  id='mpesa-phone'
+                  type='text'
+                  placeholder='254712345678'
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  required
+                />
+                <p className='text-xs text-muted-foreground'>
+                  Enter the phone number registered with M-Pesa (format:
+                  254XXXXXXXXX)
+                </p>
+              </div>
+              <div className='space-y-2'>
+                <label htmlFor='mpesa-amount' className='text-sm font-medium'>
+                  Amount (KES)
+                </label>
+                <Input
+                  id='mpesa-amount'
+                  type='number'
+                  min='10'
+                  step='1'
+                  placeholder='100'
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                />
+                <p className='text-xs text-muted-foreground'>
+                  Minimum amount: 10 KES
+                </p>
+              </div>
+
+              {/* Hidden field to store transaction ID */}
+              <div id='transaction-id' style={{ display: 'none' }}></div>
+
+              {/* Status message container */}
+              <div className='mpesa-status-container'>
+                <div
+                  id='mpesa-status-message'
+                  className='text-sm text-amber-600 mt-2 mb-2'
+                ></div>
+              </div>
+              <Button type='submit' className='w-full' disabled={loading}>
+                {loading ? (
+                  <>
+                    <span className='loading mr-2'></span>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Wallet className='mr-2 h-4 w-4' />
+                    Deposit with M-Pesa
+                  </>
+                )}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+};
+
+export default MpesaPayment;
