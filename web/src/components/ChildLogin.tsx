@@ -6,8 +6,9 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
 import { ArrowLeft, LogIn, User, Key } from 'lucide-react';
 
-// Constants
-const API_URL = 'http://localhost:3000/api';
+// Use Vite's environment variable syntax
+const API_URL =
+  import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:3000/api';
 
 interface ChildLoginProps {
   onBack: () => void;
@@ -15,7 +16,7 @@ interface ChildLoginProps {
 }
 
 const ChildLogin: React.FC<ChildLoginProps> = ({ onBack, onSuccess }) => {
-  const [childId, setChildId] = useState(''); // This will be used as jarId
+  const [jarId, setJarId] = useState('');
   const [childPin, setChildPin] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -27,25 +28,23 @@ const ChildLogin: React.FC<ChildLoginProps> = ({ onBack, onSuccess }) => {
     setLoading(true);
 
     try {
-      if (!childId || !childPin) {
+      if (!jarId || !childPin) {
         toast({
           variant: 'destructive',
           title: 'Oops!',
-          description: 'Please fill in all the boxes',
+          description: 'Please fill in both Jar ID and PIN',
         });
         return;
       }
 
-      // Use jarId instead of childId for the API call
+      console.log('Attempting child login with:', { jarId, childPin });
+
       const response = await fetch(`${API_URL}/auth/child-login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          jarId: childId, // Use childId as jarId
-          childPin,
-        }),
+        body: JSON.stringify({ jarId, childPin }),
       });
 
       console.log('Child login response status:', response.status);
@@ -57,9 +56,12 @@ const ChildLogin: React.FC<ChildLoginProps> = ({ onBack, onSuccess }) => {
       }
 
       const result = await response.json();
-      console.log('Child login successful:', result);
+      console.log('Child login result:', result);
 
-      // Use the auth context to log in
+      if (!result.token || !result.user) {
+        throw new Error('Invalid response: Missing token or user data');
+      }
+
       login(result.token, result.user);
 
       toast({
@@ -67,15 +69,16 @@ const ChildLogin: React.FC<ChildLoginProps> = ({ onBack, onSuccess }) => {
         description: `Welcome back, ${result.user.name}! Ready to save?`,
       });
 
-      // Call the success callback if provided
       if (onSuccess) {
         onSuccess();
       }
     } catch (error: any) {
+      console.error('Child login failed:', error.message);
       toast({
         variant: 'destructive',
         title: 'Oops! Something went wrong',
-        description: 'Your ID or PIN might be incorrect. Try again!',
+        description:
+          error.message || 'Your Jar ID or PIN might be incorrect. Try again!',
       });
     } finally {
       setLoading(false);
@@ -122,16 +125,16 @@ const ChildLogin: React.FC<ChildLoginProps> = ({ onBack, onSuccess }) => {
           <form onSubmit={handleChildLogin} className='space-y-4'>
             <div className='space-y-2 bg-white p-3 rounded-lg border border-blue-200'>
               <label
-                htmlFor='child-id'
+                htmlFor='jar-id'
                 className='text-sm font-medium flex items-center text-blue-700'
               >
                 <User className='h-4 w-4 mr-2 text-blue-600' />
                 Your Jar ID
               </label>
               <Input
-                id='child-id'
-                value={childId}
-                onChange={(e) => setChildId(e.target.value)}
+                id='jar-id'
+                value={jarId}
+                onChange={(e) => setJarId(e.target.value)}
                 placeholder='Enter your Jar ID here'
                 required
                 className='border-blue-200 focus:border-blue-500'
