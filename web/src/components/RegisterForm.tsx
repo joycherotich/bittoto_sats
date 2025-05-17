@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
-import { ArrowLeft, UserPlus, Phone, Key, User, Hash } from 'lucide-react';
+import { ArrowLeft, UserPlus, Phone, Key } from 'lucide-react';
 
-// Constants
-const API_URL = 'http://localhost:3000/api';
+// Use Vite environment variables
+const API_URL =
+  import.meta.env.VITE_REACT_APP_API_URL || 'http://localhost:3000/api';
 
 interface RegisterFormProps {
   onBack: () => void;
@@ -18,9 +19,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onSuccess }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [pin, setPin] = useState('');
   const [confirmPin, setConfirmPin] = useState('');
-  const [childName, setChildName] = useState('');
-  const [childAge, setChildAge] = useState('');
-  const [jarId, setJarId] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { toast } = useToast();
@@ -31,20 +29,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onSuccess }) => {
     setLoading(true);
 
     try {
-      if (
-        !phoneNumber ||
-        !pin ||
-        !confirmPin ||
-        !childName ||
-        !childAge ||
-        !jarId
-      ) {
+      // Validate inputs
+      if (!phoneNumber || !pin || !confirmPin) {
         toast({
           variant: 'destructive',
           title: 'Error',
           description: 'Please fill in all fields',
         });
-        setLoading(false);
         return;
       }
 
@@ -54,42 +45,39 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onSuccess }) => {
           title: 'Error',
           description: 'PINs do not match',
         });
-        setLoading(false);
         return;
       }
 
-      // Format phone number
-      // let formattedPhone = phoneNumber.replace(/\+/g, '');
-      // if (formattedPhone.startsWith('0')) {
-      //   formattedPhone = '254' + formattedPhone.substring(1);
-      // }
-      // if (!formattedPhone.startsWith('254')) {
-      //   formattedPhone = '254' + formattedPhone;
-      // }
-
-      const ageValue = parseInt(childAge);
-      if (isNaN(ageValue) || ageValue <= 0 || ageValue > 18) {
+      // Validate PIN (6 digits)
+      if (pin.length !== 6 || !/^\d+$/.test(pin)) {
         toast({
           variant: 'destructive',
-          title: 'Invalid Age',
-          description: 'Please enter a valid age between 1 and 18',
+          title: 'Invalid PIN',
+          description: 'PIN must be exactly 6 digits',
         });
-        setLoading(false);
         return;
       }
 
+      // Validate phone number
+      const phoneRegex = /^\+2547\d{8}$/;
+      if (!phoneRegex.test(phoneNumber)) {
+        toast({
+          variant: 'destructive',
+          title: 'Invalid Phone Number',
+          description: 'Phone number must be in the format +2547XXXXXXXX',
+        });
+        return;
+      }
+
+      // Register parent
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          // phoneNumber: formattedPhone,
           phoneNumber,
           pin,
-          childName,
-          childAge: ageValue,
-          jarId,
         }),
       });
 
@@ -99,20 +87,22 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onSuccess }) => {
       }
 
       const result = await response.json();
+      const { token, userId } = result;
 
-      // Use the auth context to log in
-      login(result.token, result.user);
+      // Log in parent
+      login(token, { id: userId, phoneNumber, role: 'parent' });
 
       toast({
         title: 'Registration Successful',
-        description: 'Your account has been created successfully!',
+        description:
+          'Your parent account has been created! You can now add children from your dashboard.',
       });
 
-      // Call the success callback if provided
       if (onSuccess) {
         onSuccess();
       }
     } catch (error: any) {
+      console.error('Registration error:', error.message);
       toast({
         variant: 'destructive',
         title: 'Registration Failed',
@@ -134,7 +124,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onSuccess }) => {
         <CardHeader className='bg-gradient-to-r from-green-500 to-emerald-500 text-white'>
           <CardTitle className='text-xl flex items-center'>
             <UserPlus className='mr-2 h-5 w-5' />
-            Register New Account
+            Register Parent Account
           </CardTitle>
         </CardHeader>
         <CardContent className='p-6'>
@@ -159,7 +149,8 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onSuccess }) => {
                   required
                 />
                 <p className='text-xs text-muted-foreground'>
-                  Enter your M-Pesa registered phone number
+                  Enter your M-Pesa registered phone number (e.g.,
+                  +254712345678)
                 </p>
               </div>
 
@@ -175,12 +166,13 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onSuccess }) => {
                   <Input
                     id='pin'
                     type='password'
-                    placeholder='Create PIN'
+                    placeholder='Create 6-digit PIN'
                     value={pin}
                     onChange={(e) => setPin(e.target.value)}
                     required
-                    minLength={4}
+                    minLength={6}
                     maxLength={6}
+                    pattern='\d*'
                   />
                 </div>
 
@@ -195,77 +187,15 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onBack, onSuccess }) => {
                   <Input
                     id='confirm-pin'
                     type='password'
-                    placeholder='Confirm PIN'
+                    placeholder='Confirm 6-digit PIN'
                     value={confirmPin}
                     onChange={(e) => setConfirmPin(e.target.value)}
                     required
-                    minLength={4}
+                    minLength={6}
                     maxLength={6}
+                    pattern='\d*'
                   />
                 </div>
-              </div>
-            </div>
-
-            <div className='border-t pt-4 mt-4'>
-              <h3 className='font-medium mb-2'>First Child Information</h3>
-
-              <div className='space-y-2'>
-                <label
-                  htmlFor='child-name'
-                  className='text-sm font-medium flex items-center'
-                >
-                  <User className='h-4 w-4 mr-2 text-green-600' />
-                  Child's Name
-                </label>
-                <Input
-                  id='child-name'
-                  type='text'
-                  placeholder='Enter child name'
-                  value={childName}
-                  onChange={(e) => setChildName(e.target.value)}
-                  required
-                />
-              </div>
-
-              <div className='space-y-2'>
-                <label
-                  htmlFor='child-age'
-                  className='text-sm font-medium flex items-center'
-                >
-                  <User className='h-4 w-4 mr-2 text-green-600' />
-                  Child's Age
-                </label>
-                <Input
-                  id='child-age'
-                  type='number'
-                  placeholder='Enter child age'
-                  value={childAge}
-                  onChange={(e) => setChildAge(e.target.value)}
-                  required
-                  min='1'
-                  max='18'
-                />
-              </div>
-
-              <div className='space-y-2'>
-                <label
-                  htmlFor='jar-id'
-                  className='text-sm font-medium flex items-center'
-                >
-                  <Hash className='h-4 w-4 mr-2 text-green-600' />
-                  Jar ID
-                </label>
-                <Input
-                  id='jar-id'
-                  type='text'
-                  placeholder='Enter jar ID'
-                  value={jarId}
-                  onChange={(e) => setJarId(e.target.value)}
-                  required
-                />
-                <p className='text-xs text-muted-foreground'>
-                  Enter the unique ID of your child's savings jar
-                </p>
               </div>
             </div>
 

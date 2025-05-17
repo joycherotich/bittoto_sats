@@ -11,6 +11,8 @@ import NotFound from './pages/NotFound';
 import ParentalControls from './pages/ParentalControls';
 import PaymentHandler from './components/PaymentHandler';
 import PaymentSelector from './components/PaymentSelector';
+import ChildLogin from './components/ChildLogin';
+import LoginForm from './components/LoginForm';
 
 const ChildrenPage = lazy(() => import('./pages/ChildrenPage'));
 
@@ -42,6 +44,24 @@ const App = () => (
               <Routes>
                 <Route path='/' element={<Index />} />
                 <Route
+                  path='/login'
+                  element={
+                    <LoginForm
+                      onChildLogin={() =>
+                        (window.location.href = '/child-login')
+                      }
+                    />
+                  }
+                />
+                <Route
+                  path='/child-login'
+                  element={
+                    <ChildLogin
+                      onBack={() => (window.location.href = '/login')}
+                    />
+                  }
+                />
+                <Route
                   path='/parental-controls'
                   element={<ParentalControls />}
                 />
@@ -54,7 +74,6 @@ const App = () => (
                   path='/payment/:select/:childId?'
                   element={<PaymentSelector />}
                 />
-
                 <Route path='*' element={<NotFound />} />
               </Routes>
             </Suspense>

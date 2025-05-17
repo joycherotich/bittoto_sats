@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,16 +6,133 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
 import { QRCodeSVG } from 'qrcode.react';
-import {
-  ArrowLeft,
-  Copy,
-  CheckCircle,
-  RefreshCcw,
-  Wallet,
-  Zap,
-} from 'lucide-react';
+import { ArrowLeft, Copy, CheckCircle, Wallet, Zap } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
+// Define types for API responses
+interface BalanceResponse {
+  balance: number;
+}
+
+interface InvoiceResponse {
+  paymentHash: string;
+  paymentRequest: string;
+  amount: number;
+}
+
+interface InvoiceStatusResponse {
+  paid: boolean;
+  amount: number;
+  memo: string;
+  createdAt: string;
+}
+
+interface MpesaDepositResponse {
+  success: boolean;
+  checkoutRequestId?: string;
+  transactionId?: string;
+}
+
+interface MpesaStatusResponse {
+  completed: boolean;
+  amount: number;
+  description: string;
+  createdAt: string;
+}
+
+// Define BalanceContext type
+interface BalanceContextType {
+  balance: number | null;
+  refreshBalance: () => Promise<void>;
+  onBalanceRefresh: (callback: () => void) => void;
+  emitBalanceRefresh: () => void;
+}
+
+// Create BalanceContext
+const BalanceContext = React.createContext<BalanceContextType>({
+  balance: null,
+  refreshBalance: async () => {},
+  onBalanceRefresh: () => {},
+  emitBalanceRefresh: () => {},
+});
+
+export const useBalance = () => React.useContext(BalanceContext);
+
+export const BalanceProvider: React.FC<{
+  children: React.ReactNode;
+  childId?: string;
+}> = ({ children, childId }) => {
+  const { api, user } = useAuth();
+  const [balance, setBalance] = useState<number | null>(null);
+  const [refreshCallbacks, setRefreshCallbacks] = useState<(() => void)[]>([]);
+
+  const refreshBalance = useCallback(async () => {
+    if (!api || !user) {
+      console.warn('Cannot refresh balance: API or user missing');
+      return;
+    }
+    const effectiveChildId = childId || user.id;
+    let retries = 3;
+    while (retries > 0) {
+      try {
+        console.log('Fetching balance:', {
+          userId: user.id,
+          childId: effectiveChildId,
+        });
+        const response: BalanceResponse = await api.getBalance({
+          childId: effectiveChildId,
+        });
+        setBalance(response.balance);
+        console.log('Balance refreshed:', {
+          userId: user.id,
+          childId: effectiveChildId,
+          balance: response.balance,
+        });
+        return;
+      } catch (error: any) {
+        console.error('Error refreshing balance:', {
+          error: error.message,
+          retries,
+        });
+        retries--;
+        if (retries === 0) {
+          console.error('Max retries reached for balance refresh');
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1s before retry
+      }
+    }
+  }, [api, user, childId]);
+
+  const onBalanceRefresh = useCallback((callback: () => void) => {
+    setRefreshCallbacks((prev) => [...prev, callback]);
+    return () => {
+      setRefreshCallbacks((prev) => prev.filter((cb) => cb !== callback));
+    };
+  }, []);
+
+  const emitBalanceRefresh = useCallback(() => {
+    console.log('Emitting balance refresh to callbacks:', {
+      callbackCount: refreshCallbacks.length,
+    });
+    refreshBalance();
+    refreshCallbacks.forEach((callback) => callback());
+  }, [refreshBalance, refreshCallbacks]);
+
+  useEffect(() => {
+    refreshBalance();
+  }, [refreshBalance]);
+
+  const value = useMemo(
+    () => ({ balance, refreshBalance, onBalanceRefresh, emitBalanceRefresh }),
+    [balance, refreshBalance, onBalanceRefresh, emitBalanceRefresh]
+  );
+
+  return (
+    <BalanceContext.Provider value={value}>{children}</BalanceContext.Provider>
+  );
+};
+
+// Define props
 interface PaymentHandlerProps {
   onBack: () => void;
   type: 'lightning' | 'mpesa';
@@ -31,7 +148,8 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
   const [loading, setLoading] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
   const { toast } = useToast();
-  const { api, token, user } = useAuth();
+  const { api, user } = useAuth();
+  const { balance, refreshBalance, emitBalanceRefresh } = useBalance();
 
   const [memo, setMemo] = useState('');
   const [invoice, setInvoice] = useState('');
@@ -43,83 +161,37 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
   const [paymentStatus, setPaymentStatus] = useState<
     'pending' | 'completed' | 'failed' | null
   >(null);
+  const [statusRetries, setStatusRetries] = useState(0);
+  const MAX_RETRIES = 3;
 
   const isParent = user?.role === 'parent';
 
-  // const handleCreateInvoice = async (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (!api || !token) {
-  //     toast({
-  //       variant: 'destructive',
-  //       title: 'Error',
-  //       description: 'You are not authenticated',
-  //     });
-  //     return;
-  //   }
-  //   if (!amount) {
-  //     toast({
-  //       variant: 'destructive',
-  //       title: 'Error',
-  //       description: 'Please enter an amount',
-  //     });
-  //     return;
-  //   }
-  //   const amountValue = parseInt(amount, 10);
-  //   if (isNaN(amountValue) || amountValue <= 0) {
-  //     toast({
-  //       variant: 'destructive',
-  //       title: 'Error',
-  //       description: 'Please enter a valid amount',
-  //     });
-  //     return;
-  //   }
-  //   setLoading(true);
-  //   try {
-  //     console.log('Creating lightning invoice', {
-  //       amount: amountValue,
-  //       memo: memo || 'BIT Toto Deposit',
-  //       childId: childId || undefined,
-  //       isParent,
-  //       userId: user?.id, // Include user ID for debugging
-  //     });
+  // Polling for payment status with cleanup
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (
+      (type === 'lightning' && paymentHash && !paymentStatus) ||
+      (type === 'mpesa' && transactionId && paymentStatus === 'pending')
+    ) {
+      interval = setInterval(() => {
+        if (type === 'lightning') {
+          checkLightningStatus();
+        } else {
+          checkMpesaStatus();
+        }
+      }, 5000);
+    }
+    return () => {
+      if (interval) {
+        console.log('Clearing payment status polling interval');
+        clearInterval(interval);
+      }
+    };
+  }, [type, paymentHash, transactionId, paymentStatus]);
 
-  //     // Make sure we're using the correct endpoint based on user role
-  //     const response = await api.createLightningInvoice({
-  //       amount: amountValue,
-  //       memo: memo || 'BIT Toto Deposit',
-  //       childId: isParent && childId ? childId : undefined,
-  //       userId: user?.id, // Pass user ID if needed by your API
-  //     });
-
-  //     setInvoice(response.paymentRequest);
-  //     setPaymentHash(response.paymentHash);
-  //     toast({
-  //       title: 'Invoice Created',
-  //       description: 'Lightning invoice generated successfully',
-  //     });
-  //   } catch (error) {
-  //     console.error('Error creating invoice:', error);
-  //     toast({
-  //       variant: 'destructive',
-  //       title: 'Error Creating Invoice',
-  //       description:
-  //         error instanceof Error
-  //           ? error.message
-  //           : 'Could not generate Lightning invoice',
-  //     });
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
   const handleCreateInvoice = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('handleCreateInvoice called with:', {
-      isParent,
-      childId,
-      user,
-      token: token ? 'present' : 'missing',
-    });
-    if (!api || !token) {
+    if (!api || !user) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -127,24 +199,17 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
       });
       return;
     }
-    if (isParent && !childId) {
+    const effectiveChildId = isParent ? childId : user.id;
+    if (!effectiveChildId) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Child ID is required for parent invoice creation',
-      });
-      return;
-    }
-    if (!amount) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please enter an amount',
+        description: 'Child ID is required',
       });
       return;
     }
     const amountValue = parseInt(amount, 10);
-    if (isNaN(amountValue) || amountValue <= 0) {
+    if (!amount || isNaN(amountValue) || amountValue <= 0) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -154,50 +219,45 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
     }
     setLoading(true);
     try {
-      console.log('Creating lightning invoice', {
+      console.log('Creating lightning invoice:', {
         amount: amountValue,
         memo: memo || 'BIT Toto Deposit',
-        childId: isParent ? childId : undefined,
-        isParent,
-        userId: user?.id,
-        userRole: user?.role,
+        childId: effectiveChildId,
+        userId: user.id,
+        userRole: user.role,
       });
-
-      const response = await api.createLightningInvoice({
+      const response: InvoiceResponse = await api.createLightningInvoice({
         amount: amountValue,
         memo: memo || 'BIT Toto Deposit',
-        childId: isParent ? childId : undefined,
-        userId: user?.id,
-        userRole: user?.role,
+        childId: effectiveChildId,
+        userId: user.id,
+        userRole: user.role,
       });
-
       if (!response.paymentRequest || !response.paymentHash) {
-        throw new Error('Invalid invoice response from server');
+        throw new Error('Invalid invoice response');
       }
-
       setInvoice(response.paymentRequest);
       setPaymentHash(response.paymentHash);
+      setStatusRetries(0);
       toast({
         title: 'Invoice Created',
-        description: 'Lightning invoice generated successfully',
+        description: 'Lightning invoice generated. Checking payment status...',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating invoice:', error);
       toast({
         variant: 'destructive',
-        title: 'Error Creating Invoice',
-        description:
-          error instanceof Error
-            ? `Failed to create invoice: ${error.message}`
-            : 'Could not generate Lightning invoice',
+        title: 'Error',
+        description: error.message || 'Could not generate Lightning invoice',
       });
     } finally {
       setLoading(false);
     }
   };
+
   const handleMpesaPayment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!api || !token) {
+    if (!api || !user) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -231,40 +291,48 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
     }
     setLoading(true);
     setPaymentStatus('pending');
+    const effectiveChildId = isParent ? childId : user.id;
+    if (!effectiveChildId) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Child ID is required',
+      });
+      setLoading(false);
+      return;
+    }
     try {
       console.log('Submitting M-Pesa deposit:', {
         phoneNumber: formattedPhone,
         amount: amountValue,
-        childId: isParent ? childId : undefined,
+        childId: effectiveChildId,
       });
-
-      const response = await api.createMpesaDeposit({
+      const response: MpesaDepositResponse = await api.createMpesaDeposit({
         phoneNumber: formattedPhone,
         amount: amountValue,
-        childId: isParent ? childId : undefined,
+        childId: effectiveChildId,
       });
-
-      console.log('M-Pesa API response:', response);
-
-      if (!response.success && !response.checkoutRequestId) {
-        throw new Error('STK Push not initiated: Invalid response');
+      if (
+        !response.success ||
+        (!response.checkoutRequestId && !response.transactionId)
+      ) {
+        throw new Error('STK Push not initiated');
       }
-
-      setTransactionId(response.checkoutRequestId || response.transactionId);
+      setTransactionId(
+        response.checkoutRequestId || response.transactionId || null
+      );
+      setStatusRetries(0);
       toast({
         title: 'M-Pesa Request Sent',
-        description: `STK Push initiated. Please check your phone to complete the payment.`,
+        description: 'STK Push initiated. Please check your phone.',
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('M-Pesa deposit error:', error);
       setPaymentStatus('failed');
       toast({
         variant: 'destructive',
         title: 'Payment Failed',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Could not process M-Pesa payment',
+        description: error.message || 'Could not process M-Pesa payment',
       });
       setTransactionId(null);
     } finally {
@@ -282,88 +350,128 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
     });
   };
 
-  const checkLightningStatus = async () => {
-    if (!api || !token || !paymentHash) return;
+  const checkLightningStatus = useCallback(async () => {
+    if (!api || !paymentHash || statusRetries >= MAX_RETRIES) return;
     setCheckingStatus(true);
     try {
-      const response = await api.checkInvoiceStatus(paymentHash);
+      console.log('Checking Lightning invoice status:', { paymentHash });
+      const response: InvoiceStatusResponse = await api.checkInvoiceStatus(
+        paymentHash
+      );
+      console.log('Lightning status response:', response);
       if (response.paid) {
+        setPaymentStatus('completed');
+        // Optimistically update balance
+        setBalance((prev) => (prev ?? 0) + response.amount);
+        await refreshBalance();
+        emitBalanceRefresh();
         toast({
-          title: 'Payment Received',
-          description: `${amount} sats have been added to your balance`,
+          title: '🎉 Payment Confirmed',
+          description: `${response.amount} sats added.`,
         });
-        setAmount('');
-        setMemo('');
         setInvoice('');
         setPaymentHash('');
+        setAmount('');
+        setMemo('');
       } else {
+        setStatusRetries((prev) => prev + 1);
         toast({
           title: 'Payment Pending',
-          description: 'The invoice has not been paid yet',
+          description: `Invoice not paid yet. Retry ${
+            statusRetries + 1
+          }/${MAX_RETRIES}`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error checking Lightning status:', error);
+      setStatusRetries((prev) => prev + 1);
       toast({
         variant: 'destructive',
-        title: 'Error Checking Status',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Could not check invoice status',
+        title: 'Error',
+        description: `Could not verify payment: ${
+          error.message || 'Unknown error'
+        }. Retry ${statusRetries + 1}/${MAX_RETRIES}`,
       });
+      if (statusRetries + 1 >= MAX_RETRIES) {
+        setPaymentStatus('failed');
+      }
     } finally {
       setCheckingStatus(false);
     }
-  };
+  }, [
+    api,
+    paymentHash,
+    statusRetries,
+    refreshBalance,
+    emitBalanceRefresh,
+    toast,
+  ]);
 
-  const checkMpesaStatus = async () => {
-    if (!api || !token || !transactionId) return;
+  const checkMpesaStatus = useCallback(async () => {
+    if (!api || !transactionId || statusRetries >= MAX_RETRIES) return;
     setCheckingStatus(true);
     try {
-      const response = await api.checkMpesaStatus(transactionId);
-      if (response.completed || response.status === 'completed') {
+      console.log('Checking M-Pesa status:', { transactionId });
+      const response: MpesaStatusResponse = await api.checkMpesaStatus(
+        transactionId
+      );
+      console.log('M-Pesa status response:', response);
+      if (response.completed) {
         setPaymentStatus('completed');
+        // Optimistically update balance (convert KES to sats, e.g., 1 KES = 1000 sats)
+        setBalance((prev) => (prev ?? 0) + response.amount * 1000);
+        await refreshBalance();
+        emitBalanceRefresh();
         toast({
-          title: 'Payment Successful',
-          description: `${
-            response.amount || amount
-          } KES have been added to your balance`,
+          title: '🎉 Payment Confirmed',
+          description: `${response.amount} KES added.`,
         });
         setPhoneNumber('');
         setAmount('');
         setTransactionId(null);
       } else {
+        setStatusRetries((prev) => prev + 1);
         toast({
           title: 'Payment Pending',
-          description:
-            'The payment has not been completed yet. Please check your phone and complete the payment.',
+          description: `Payment not completed yet. Retry ${
+            statusRetries + 1
+          }/${MAX_RETRIES}`,
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('Error checking M-Pesa status:', error);
+      setStatusRetries((prev) => prev + 1);
       toast({
         variant: 'destructive',
-        title: 'Error Checking Payment',
-        description:
-          error instanceof Error
-            ? error.message
-            : 'Could not check payment status',
+        title: 'Error',
+        description: `Could not verify payment: ${
+          error.message || 'Unknown error'
+        }. Retry ${statusRetries + 1}/${MAX_RETRIES}`,
       });
+      if (statusRetries + 1 >= MAX_RETRIES) {
+        setPaymentStatus('failed');
+      }
     } finally {
       setCheckingStatus(false);
     }
-  };
+  }, [
+    api,
+    transactionId,
+    statusRetries,
+    refreshBalance,
+    emitBalanceRefresh,
+    toast,
+  ]);
 
   const resetPayment = () => {
-    if (type === 'lightning') {
-      setInvoice('');
-      setPaymentHash('');
-      setMemo('');
-    } else {
-      setPhoneNumber('');
-      setTransactionId(null);
-      setPaymentStatus(null);
-    }
+    setInvoice('');
+    setPaymentHash('');
+    setMemo('');
+    setPhoneNumber('');
+    setTransactionId(null);
+    setPaymentStatus(null);
     setAmount('');
+    setStatusRetries(0);
   };
 
   const renderLightningForm = () => (
@@ -446,7 +554,7 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
           <Button
             className='w-full'
             onClick={checkLightningStatus}
-            disabled={checkingStatus}
+            disabled={checkingStatus || statusRetries >= MAX_RETRIES}
           >
             {checkingStatus ? (
               <>
@@ -542,12 +650,11 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
         </Alert>
         <div className='flex flex-col space-y-4 items-center'>
           <p className='text-sm text-muted-foreground text-center'>
-            Once you've completed the payment on your phone, click the button
-            below to check the status.
+            The status will update automatically once payment is completed.
           </p>
           <Button
             onClick={checkMpesaStatus}
-            disabled={checkingStatus}
+            disabled={checkingStatus || statusRetries >= MAX_RETRIES}
             className='w-full'
           >
             {checkingStatus ? (
@@ -562,7 +669,7 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
               </>
             )}
           </Button>
-          <Button variant='outline' onClick={resetPayment} className='w-full'>
+          <Button variant='outline' className='w-full' onClick={resetPayment}>
             Cancel and Start Over
           </Button>
         </div>
@@ -570,14 +677,18 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
     </Card>
   );
 
-  const renderMpesaCompleted = () => (
+  const renderPaymentCompleted = () => (
     <Card>
       <CardContent className='pt-6 pb-6'>
         <div className='flex flex-col items-center justify-center space-y-4'>
           <CheckCircle className='h-16 w-16 text-green-500' />
           <h3 className='text-xl font-semibold'>Payment Successful!</h3>
           <p className='text-center text-muted-foreground'>
-            Your deposit has been processed successfully.
+            Your deposit of {amount} {type === 'lightning' ? 'sats' : 'KES'} has
+            been processed.
+          </p>
+          <p className='text-center font-medium'>
+            New Balance: {balance !== null ? `${balance} sats` : 'Loading...'}
           </p>
           <Button onClick={resetPayment} className='mt-4'>
             Make Another Deposit
@@ -601,9 +712,11 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
       {type === 'lightning'
         ? !invoice
           ? renderLightningForm()
+          : paymentStatus === 'completed'
+          ? renderPaymentCompleted()
           : renderLightningInvoice()
         : paymentStatus === 'completed'
-        ? renderMpesaCompleted()
+        ? renderPaymentCompleted()
         : transactionId
         ? renderMpesaInProgress()
         : renderMpesaForm()}

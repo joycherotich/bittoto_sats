@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
 import { ArrowLeft, LogIn, User, Key } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 // Use Vite's environment variable syntax
 const API_URL =
@@ -12,16 +13,16 @@ const API_URL =
 
 interface ChildLoginProps {
   onBack: () => void;
-  onSuccess?: () => void;
 }
 
-const ChildLogin: React.FC<ChildLoginProps> = ({ onBack, onSuccess }) => {
+const ChildLogin: React.FC<ChildLoginProps> = ({ onBack }) => {
   const [jarId, setJarId] = useState('');
   const [childPin, setChildPin] = useState('');
   const [loading, setLoading] = useState(false);
 
   const { toast } = useToast();
   const { login } = useAuth();
+  const navigate = useNavigate();
 
   const handleChildLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,15 +64,18 @@ const ChildLogin: React.FC<ChildLoginProps> = ({ onBack, onSuccess }) => {
       }
 
       login(result.token, result.user);
+      console.log('Login called with:', {
+        token: result.token.substring(0, 15) + '...',
+        user: result.user,
+      });
+
+      // Navigate to payment page
+      navigate('/payment/lightning');
 
       toast({
         title: "🎉 Yay! You're in!",
         description: `Welcome back, ${result.user.name}! Ready to save?`,
       });
-
-      if (onSuccess) {
-        onSuccess();
-      }
     } catch (error: any) {
       console.error('Child login failed:', error.message);
       toast({

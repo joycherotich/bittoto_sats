@@ -266,7 +266,6 @@ export const createApiClient = (token: string) => {
     getChildTransactions: async (childId: string): Promise<any[]> => {
       try {
         console.log(`Fetching transactions for child ID: ${childId}`);
-        // Use the correct endpoint for parent getting child's transactions
         const endpoint = `${API_URL}/parent/children/${childId}/transactions`;
         console.log(`Using child transactions endpoint: ${endpoint}`);
 
@@ -329,7 +328,6 @@ export const createApiClient = (token: string) => {
             amount: data.amount,
           }),
           cache: 'no-cache',
-          // Removed credentials: 'include' to fix CORS issue
         });
 
         console.log('Response status:', response.status);

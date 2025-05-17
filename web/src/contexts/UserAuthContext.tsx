@@ -44,23 +44,27 @@ export const UserAuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(UserAuthContext);
 
-export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string>('');
-  const [api, setApi] = useState<ReturnType<typeof createApiClient> | null>(null);
-  
+  const [api, setApi] = useState<ReturnType<typeof createApiClient> | null>(
+    null
+  );
+
   // Check if token is valid (not expired)
   const checkToken = (token: string): boolean => {
     try {
       // Parse the JWT payload
       const payload = JSON.parse(atob(token.split('.')[1]));
       const expiry = payload.exp * 1000; // Convert to milliseconds
-      
+
       if (Date.now() >= expiry) {
         console.warn('Token has expired');
         return false;
       }
-      
+
       return true;
     } catch (error) {
       console.error('Error checking token:', error);
@@ -72,17 +76,17 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // Check if user is logged in from localStorage
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (storedToken && storedUser) {
       // Verify token is still valid
       if (checkToken(storedToken)) {
         setToken(storedToken);
         const userData = JSON.parse(storedUser);
         setUser(userData);
-        
+
         // Store user role for API endpoints
         localStorage.setItem('userRole', userData.role);
-        
+
         setApi(createApiClient(storedToken));
         console.log('Auth restored from localStorage, role:', userData.role);
       } else {
@@ -94,20 +98,20 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
     }
   }, []);
-  
+
   const login = (newToken: string, newUser: User) => {
     console.log('Logging in user:', newUser.name, 'with role:', newUser.role);
     console.log('Token (first 15 chars):', newToken.substring(0, 15) + '...');
-    
+
     localStorage.setItem('token', newToken);
     localStorage.setItem('user', JSON.stringify(newUser));
     localStorage.setItem('userRole', newUser.role);
-    
+
     setToken(newToken);
     setUser(newUser);
     setApi(createApiClient(newToken));
   };
-  
+
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -117,22 +121,22 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setApi(null);
     console.log('User logged out, auth state cleared');
   };
-  
+
   // Derived properties
   const isParent = !!user && user.role === 'parent';
   const isChild = !!user && user.role === 'child';
-  
+
   return (
-    <UserAuthContext.Provider 
-      value={{ 
-        user, 
-        token, 
-        login, 
-        logout, 
+    <UserAuthContext.Provider
+      value={{
+        user,
+        token,
+        login,
+        logout,
         isAuthenticated: !!token && !!user,
         api,
         isParent,
-        isChild
+        isChild,
       }}
     >
       {children}
