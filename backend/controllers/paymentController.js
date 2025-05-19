@@ -40,8 +40,12 @@ const initiateSTKPush = async (req, res) => {
     const userRole = req.user.role;
     const { childId } = req.params;
 
-    console.log(`Initiating M-Pesa payment for user ${userId} with role ${userRole}`);
-    console.log(`Phone: ${phoneNumber}, Amount: ${amount}, ChildId: ${childId || 'none'}`);
+    console.log(
+      `Initiating M-Pesa payment for user ${userId} with role ${userRole}`
+    );
+    console.log(
+      `Phone: ${phoneNumber}, Amount: ${amount}, ChildId: ${childId || 'none'}`
+    );
 
     if (!phoneNumber || !amount) {
       return res
@@ -66,28 +70,35 @@ const initiateSTKPush = async (req, res) => {
     // If this is a parent making a deposit for a child, verify the child belongs to them
     let targetUserId = userId;
     let accountReference = 'SatsJar-default';
-    
+
     if (childId && userRole === 'parent') {
-      console.log(`Parent ${userId} attempting to deposit for child ${childId}`);
-      
+      console.log(
+        `Parent ${userId} attempting to deposit for child ${childId}`
+      );
+
       // Verify child belongs to parent
-      const childDoc = await firestore.collection('children').doc(childId).get();
-      
+      const childDoc = await firestore
+        .collection('children')
+        .doc(childId)
+        .get();
+
       if (!childDoc.exists) {
         return res.status(404).json({ error: 'Child not found' });
       }
-      
+
       const childData = childDoc.data();
-      
+
       if (childData.parentId !== userId) {
-        return res.status(403).json({ 
-          error: 'You do not have permission to deposit for this child' 
+        return res.status(403).json({
+          error: 'You do not have permission to deposit for this child',
         });
       }
-      
+
       targetUserId = childId;
       accountReference = `SatsJar-${childData.jarId || childId}`;
-      console.log(`Verified child belongs to parent. Using account reference: ${accountReference}`);
+      console.log(
+        `Verified child belongs to parent. Using account reference: ${accountReference}`
+      );
     }
 
     // Check for pending transactions
@@ -215,10 +226,10 @@ const processCallback = async (callbackData) => {
     }
 
     const transactionDoc = transactionsSnapshot.docs[0];
-    const transaction = transactionDoc.data();
     const transactionId = transactionDoc.id;
+    const transaction = transactionDoc.data();
 
-    console.log('Found transaction:', { id: transactionId, ...transaction });
+    console.log('Found transaction:', transaction);
 
     // Update transaction status
     if (ResultCode === 0) {
@@ -238,7 +249,7 @@ const processCallback = async (callbackData) => {
       console.log('Payment successful:', {
         amount,
         mpesaReceiptNumber,
-        phoneNumber
+        phoneNumber,
       });
 
       // Update transaction
@@ -258,46 +269,70 @@ const processCallback = async (callbackData) => {
       console.log('Converting KES to satoshis:', {
         amount,
         conversionRate,
-        satoshis
+        satoshis,
       });
 
       // Determine if this is a child or parent account
       const isChild = transaction.userId !== transaction.initiatedBy;
-      
-      if (isChild) {
-        // This is a deposit to a child account
-        console.log(`Updating child ${transaction.userId} balance`);
-        
-        await firestore
-          .collection('children')
-          .doc(transaction.userId)
-          .update({
-            balance: firestore.FieldValue.increment(satoshis),
-          });
-      } else {
-        // This is a deposit to a parent/user account
-        console.log(`Updating user ${transaction.userId} wallet balance`);
-        
-        await firestore
-          .collection('users')
-          .doc(transaction.userId)
-          .update({
-            'wallet.balance': firestore.FieldValue.increment(satoshis),
-          });
-      }
 
-      // Record transaction
-      await firestore.collection('transactions').add({
-        userId: transaction.userId,
-        initiatedBy: transaction.initiatedBy,
-        type: 'deposit',
-        source: 'mpesa',
-        amount: satoshis,
-        fiatAmount: amount,
-        currency: 'KES',
-        description: `M-Pesa deposit: ${mpesaReceiptNumber}`,
-        mpesaReceiptNumber,
-        timestamp: new Date(),
+      // Use a transaction to ensure atomic updates
+      const db = firestore;
+      await db.runTransaction(async (dbTransaction) => {
+        if (isChild) {
+          // This is a deposit to a child account
+          console.log(`Updating child ${transaction.userId} balance`);
+
+          const childRef = db.collection('children').doc(transaction.userId);
+          const childDoc = await dbTransaction.get(childRef);
+
+          if (!childDoc.exists) {
+            throw new Error(`Child document ${transaction.userId} not found`);
+          }
+
+          const currentBalance = childDoc.data().balance || 0;
+          console.log(
+            `Current child balance: ${currentBalance}, adding ${satoshis}`
+          );
+
+          dbTransaction.update(childRef, {
+            balance: currentBalance + satoshis,
+          });
+        } else {
+          // This is a deposit to a parent/user account
+          console.log(`Updating user ${transaction.userId} wallet balance`);
+
+          const userRef = db.collection('users').doc(transaction.userId);
+          const userDoc = await dbTransaction.get(userRef);
+
+          if (!userDoc.exists) {
+            throw new Error(`User document ${transaction.userId} not found`);
+          }
+
+          const userData = userDoc.data();
+          const currentBalance = userData.wallet?.balance || 0;
+          console.log(
+            `Current user balance: ${currentBalance}, adding ${satoshis}`
+          );
+
+          dbTransaction.update(userRef, {
+            'wallet.balance': currentBalance + satoshis,
+          });
+        }
+
+        // Record transaction in the same atomic operation
+        const transactionRef = db.collection('transactions').doc();
+        dbTransaction.set(transactionRef, {
+          userId: transaction.userId,
+          initiatedBy: transaction.initiatedBy,
+          type: 'deposit',
+          source: 'mpesa',
+          amount: satoshis,
+          fiatAmount: amount,
+          currency: 'KES',
+          description: `M-Pesa deposit: ${mpesaReceiptNumber}`,
+          mpesaReceiptNumber,
+          timestamp: new Date(),
+        });
       });
 
       console.log('Transaction recorded successfully');
@@ -309,7 +344,7 @@ const processCallback = async (callbackData) => {
           .collection('users')
           .doc(transaction.initiatedBy)
           .get();
-          
+
         if (userDoc.exists) {
           const userData = userDoc.data();
           await smsService.sendDepositNotification(
@@ -324,10 +359,7 @@ const processCallback = async (callbackData) => {
 
       // Check goals achievement
       try {
-        await checkGoalsAchievement(
-          transaction.userId,
-          satoshis
-        );
+        await checkGoalsAchievement(transaction.userId, satoshis);
       } catch (goalError) {
         console.error('Failed to check goals achievement:', goalError);
       }
@@ -408,7 +440,9 @@ const checkPaymentStatus = async (req, res) => {
     const { transactionId } = req.params;
     const userId = req.user.id;
 
-    console.log(`Checking payment status for transaction ${transactionId} by user ${userId}`);
+    console.log(
+      `Checking payment status for transaction ${transactionId} by user ${userId}`
+    );
 
     // Get transaction
     const transactionDoc = await firestore
@@ -426,7 +460,9 @@ const checkPaymentStatus = async (req, res) => {
 
     // Check if transaction belongs to user or was initiated by user
     if (transaction.userId !== userId && transaction.initiatedBy !== userId) {
-      console.log(`Transaction ${transactionId} does not belong to user ${userId}`);
+      console.log(
+        `Transaction ${transactionId} does not belong to user ${userId}`
+      );
       return res.status(403).json({ error: 'Unauthorized' });
     }
 

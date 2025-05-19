@@ -8,7 +8,7 @@ const createGoal = async (req, res) => {
   try {
     const userId = req.user.id;
     const userRole = req.user.role;
-    
+
     console.log(`Creating goal for user ${userId} with role ${userRole}`);
     console.log('Request body:', req.body);
 
@@ -37,12 +37,14 @@ const createGoal = async (req, res) => {
         .where('parentId', '==', userId)
         .limit(1)
         .get();
-        
+
       if (childrenSnapshot.empty) {
         console.log(`No children found for parent ${userId}`);
-        return res.status(400).json({ error: 'No children found for this parent' });
+        return res
+          .status(400)
+          .json({ error: 'No children found for this parent' });
       }
-      
+
       childId = childrenSnapshot.docs[0].id;
       console.log(`Using first child: ${childId}`);
     } else {
@@ -78,10 +80,10 @@ const createGoal = async (req, res) => {
     }
 
     const childData = childDoc.data();
-    console.log(`Child data:`, { 
-      name: childData.name, 
+    console.log(`Child data:`, {
+      name: childData.name,
       jarId: childData.jarId,
-      parentId: childData.parentId
+      parentId: childData.parentId,
     });
 
     // Create the goal
@@ -115,13 +117,13 @@ const createGoal = async (req, res) => {
   }
 };
 
-// Get all goals for a child
+// Get all goals for a user or child
 const getGoals = async (req, res) => {
   try {
     const userId = req.user.id;
     const userRole = req.user.role;
-    
     console.log(`Getting goals for user ${userId} with role ${userRole}`);
+    console.log('Query params:', req.query);
 
     // Determine which child's goals to fetch
     let childId;
@@ -140,6 +142,46 @@ const getGoals = async (req, res) => {
           error: 'You do not have permission to view goals for this child',
         });
       }
+
+      // Get goals for the specific child
+      console.log(`Fetching goals for specific child: ${childId}`);
+      const goalsSnapshot = await db
+        .collection('goals')
+        .where('childId', '==', childId)
+        .get();
+
+      console.log(`Found ${goalsSnapshot.size} goals for child ${childId}`);
+
+      const goals = [];
+      goalsSnapshot.forEach((doc) => {
+        const goalData = doc.data();
+        goals.push({
+          id: doc.id,
+          ...goalData,
+          createdAt: goalData.createdAt
+            ? goalData.createdAt.toDate().toISOString()
+            : null,
+          updatedAt: goalData.updatedAt
+            ? goalData.updatedAt.toDate().toISOString()
+            : null,
+          progress:
+            goalData.targetAmount > 0
+              ? (goalData.currentAmount / goalData.targetAmount) * 100
+              : 0,
+          status: goalData.approved
+            ? goalData.currentAmount >= goalData.targetAmount
+              ? 'completed'
+              : 'approved'
+            : 'pending',
+          // Ensure these fields are included for the frontend
+          target: goalData.targetAmount || 0,
+          current: goalData.currentAmount || 0,
+          approved: goalData.approved || false,
+        });
+      });
+
+      console.log(`Returning ${goals.length} goals for child ${childId}`);
+      return res.json(goals);
     } else if (userRole === 'parent') {
       console.log(`Parent user, fetching goals for all children`);
       // If no childId specified, get goals for all children of this parent
@@ -166,7 +208,7 @@ const getGoals = async (req, res) => {
         .get();
 
       console.log(`Found ${goalsSnapshot.size} goals for parent ${userId}`);
-      
+
       const goals = [];
       goalsSnapshot.forEach((doc) => {
         const goalData = doc.data();
@@ -195,7 +237,7 @@ const getGoals = async (req, res) => {
       return res.json(goals);
     }
 
-    // Get goals for a specific child
+    // Get goals for a specific child (this is the default case)
     console.log(`Fetching goals for specific child: ${childId}`);
     const goalsSnapshot = await db
       .collection('goals')
@@ -203,7 +245,7 @@ const getGoals = async (req, res) => {
       .get();
 
     console.log(`Found ${goalsSnapshot.size} goals for child ${childId}`);
-    
+
     const goals = [];
     goalsSnapshot.forEach((doc) => {
       const goalData = doc.data();
@@ -225,6 +267,10 @@ const getGoals = async (req, res) => {
             ? 'completed'
             : 'approved'
           : 'pending',
+        // Ensure these fields are included for the frontend
+        target: goalData.targetAmount ? goalData.targetAmount : 0,
+        current: goalData.currentAmount ? goalData.currentAmount : 0,
+        approved: goalData.approved ? goalData.approved : false,
       });
     });
 
@@ -434,8 +480,19 @@ const approveGoal = async (req, res) => {
     const userRole = req.user.role;
     const { goalId } = req.params;
 
+    console.log(
+      `Approving goal ${goalId} by user ${userId} with role ${userRole}`
+    );
+
+    // Validate inputs
+    if (!goalId) {
+      console.log('Missing goalId parameter');
+      return res.status(400).json({ error: 'Goal ID is required' });
+    }
+
     // Only parents can approve goals
     if (userRole !== 'parent') {
+      console.log(`Approval rejected: User ${userId} is not a parent`);
       return res.status(403).json({ error: 'Only parents can approve goals' });
     }
 
@@ -443,25 +500,46 @@ const approveGoal = async (req, res) => {
     const goalDoc = await db.collection('goals').doc(goalId).get();
 
     if (!goalDoc.exists) {
+      console.log(`Goal ${goalId} not found`);
       return res.status(404).json({ error: 'Goal not found' });
     }
 
     const goalData = goalDoc.data();
+    console.log(`Goal data:`, goalData);
+
+    // Check if goal is already approved
+    if (goalData.approved) {
+      console.log(`Goal ${goalId} is already approved`);
+      return res.status(400).json({ error: 'Goal is already approved' });
+    }
 
     // Check if this parent owns the goal
     if (goalData.parentId !== userId) {
+      console.log(
+        `Permission denied: Goal's parentId ${goalData.parentId} doesn't match user ${userId}`
+      );
       return res
         .status(403)
         .json({ error: 'You do not have permission to approve this goal' });
     }
 
     // Update the goal
+    console.log(`Updating goal ${goalId} to approved status`);
     await db.collection('goals').doc(goalId).update({
       approved: true,
+      status: 'approved',
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    res.json({ message: 'Goal approved successfully' });
+    console.log(`Goal ${goalId} approved successfully`);
+    res.json({
+      message: 'Goal approved successfully',
+      goal: {
+        id: goalId,
+        approved: true,
+        status: 'approved',
+      },
+    });
   } catch (error) {
     console.error('Approve goal error:', error);
     res.status(500).json({ error: 'Failed to approve goal' });

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RefreshCcw, LogOut } from 'lucide-react';
+import { RefreshCcw, LogOut, PiggyBank } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -24,18 +24,19 @@ interface Goal {
   approved: boolean;
   childId?: string;
   jarId?: string;
+  childName?: string;
 }
 
 interface EnhancedDashboardProps {
   balance: number;
-  onRefreshBalance: () => void;
+  onRefreshBalance?: () => void;
   onShowHistory: () => void;
-  onLogout: () => void;
+  onLogout?: () => void;
   onShowGoals?: () => void;
-  onShowAchievements?: () => void;
-  onShowLearning?: () => void;
+  onShowAchievements?: (childId?: string) => void;
+  onShowLearning?: (childId?: string) => void;
   onManageChildren?: () => void;
-  isLoadingBalance: boolean;
+  isLoadingBalance?: boolean;
   onViewChildDashboard?: (childId: string) => void;
 }
 
@@ -48,7 +49,7 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
   onShowAchievements,
   onShowLearning,
   onManageChildren,
-  isLoadingBalance,
+  isLoadingBalance = false,
   onViewChildDashboard,
 }) => {
   const { toast } = useToast();
@@ -57,22 +58,76 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
   const [isLoadingChildren, setIsLoadingChildren] = useState(false);
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
   const [pendingGoals, setPendingGoals] = useState<Goal[]>([]);
+  const [childGoals, setChildGoals] = useState<Goal[]>([]);
+  const [selectedChildName, setSelectedChildName] = useState<string>('');
   const navigate = useNavigate();
 
   const [exchangeRate, setExchangeRate] = useState(0.03);
   const kesAmount = balance * exchangeRate;
 
+  // Add handlers for learning and achievements
+  const handleShowLearning = (childId?: string) => {
+    console.log(
+      'EnhancedDashboard: Showing learning resources',
+      childId ? `for child ${childId}` : 'for family'
+    );
+
+    if (childId) {
+      // Navigate to child-specific learning
+      navigate('/learning', { state: { childId } });
+    } else {
+      // Navigate to family learning
+      navigate('/learning');
+    }
+  };
+
+  const handleShowAchievements = (childId?: string) => {
+    console.log(
+      'EnhancedDashboard: Showing achievements',
+      childId ? `for child ${childId}` : 'for family'
+    );
+
+    if (childId) {
+      // Navigate to child-specific achievements
+      navigate('/achievements', { state: { childId } });
+    } else {
+      // Navigate to family achievements
+      navigate('/achievements');
+    }
+  };
+
+  // Add the missing handleManageChildren function
+  const handleManageChildren = () => {
+    console.log('EnhancedDashboard: Handling manage children');
+    if (onManageChildren) {
+      onManageChildren();
+    } else {
+      // Fallback to direct navigation if the callback isn't provided
+      navigate('/children');
+    }
+  };
+
+  // Add this function near your other handler functions
+  const handleSelectPayment = (childId: string) => {
+    console.log('Navigating to payment selection for child:', childId);
+    navigate(`/payment/select/${childId}`);
+  };
+
+  // Fetch children data for parent users
   useEffect(() => {
     if (isParent && api) {
       const fetchChildren = async () => {
-        setIsLoadingChildren(true);
         try {
-          const childrenData = await api.getChildren();
-          console.log('Children data loaded:', childrenData);
-          if (Array.isArray(childrenData) && childrenData.length > 0) {
-            setChildren(childrenData);
+          setIsLoadingChildren(true);
+          console.log('Fetching children...');
+
+          const fetchedChildren = await api.getChildren();
+          console.log('API returned children:', fetchedChildren);
+
+          if (Array.isArray(fetchedChildren) && fetchedChildren.length > 0) {
+            setChildren(fetchedChildren);
           } else {
-            console.warn('No children data returned or invalid format');
+            console.log('No children returned or invalid format');
             setChildren([]);
           }
         } catch (error) {
@@ -83,222 +138,364 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
         }
       };
 
-      const fetchGoals = async () => {
+      const fetchPendingGoals = async () => {
+        if (!api || !isParent) return;
+
         try {
-          const allGoals = await api.getGoals();
-          console.log('Goals data loaded:', allGoals);
-          const unapprovedGoals = Array.isArray(allGoals)
-            ? allGoals.filter((goal) => !goal.approved)
-            : [];
-          setPendingGoals(unapprovedGoals);
+          console.log('EnhancedDashboard: Fetching pending goals');
+          setPendingGoals([]); // Clear existing goals while loading
+
+          // Try to use the API method first
+          try {
+            const fetchedPendingGoals = await api.getPendingGoals();
+
+            if (
+              Array.isArray(fetchedPendingGoals) &&
+              fetchedPendingGoals.length > 0
+            ) {
+              console.log(
+                'EnhancedDashboard: Received pending goals:',
+                fetchedPendingGoals
+              );
+              setPendingGoals(fetchedPendingGoals);
+              return;
+            } else {
+              console.log(
+                'EnhancedDashboard: No pending goals returned from API method'
+              );
+            }
+          } catch (apiMethodError) {
+            console.error(
+              'EnhancedDashboard: Error using api.getPendingGoals():',
+              apiMethodError
+            );
+          }
+
+          // Fallback: Try to get all goals and filter for pending ones
+          console.log(
+            'EnhancedDashboard: Trying fallback method - get all goals and filter'
+          );
+          if (typeof api.getGoals === 'function') {
+            try {
+              const allGoals = await api.getGoals();
+              if (Array.isArray(allGoals)) {
+                const pendingGoalsFiltered = allGoals.filter(
+                  (goal) => !goal.approved
+                );
+                console.log(
+                  'EnhancedDashboard: Filtered pending goals:',
+                  pendingGoalsFiltered
+                );
+
+                // Process the goals to ensure they have all required properties
+                const processedGoals = pendingGoalsFiltered.map((goal) => ({
+                  id: goal.id,
+                  name: goal.name || 'Unnamed Goal',
+                  target: goal.targetAmount || goal.target || 0,
+                  current: goal.currentAmount || goal.current || 0,
+                  approved: false,
+                  childId: goal.childId,
+                  jarId: goal.jarId,
+                  childName: goal.childName || 'Unknown Child',
+                }));
+
+                setPendingGoals(processedGoals);
+                return;
+              }
+            } catch (getGoalsError) {
+              console.error(
+                'EnhancedDashboard: Error using fallback getGoals method:',
+                getGoalsError
+              );
+            }
+          }
+
+          // Direct API call as last resort
+          console.log(
+            'EnhancedDashboard: Trying direct API call as last resort'
+          );
+          try {
+            const response = await fetch(
+              `${import.meta.env.VITE_API_URL}/goals?approved=false`,
+              {
+                headers: {
+                  Authorization: `Bearer ${user?.token}`,
+                },
+              }
+            );
+
+            if (response.ok) {
+              const data = await response.json();
+              const pendingGoalsData = Array.isArray(data)
+                ? data
+                : data.goals && Array.isArray(data.goals)
+                ? data.goals
+                : [];
+              console.log(
+                'EnhancedDashboard: Pending goals from direct API call:',
+                pendingGoalsData
+              );
+
+              // Process the goals to ensure they have all required properties
+              const processedGoals = pendingGoalsData.map((goal) => ({
+                id: goal.id,
+                name: goal.name || 'Unnamed Goal',
+                target: goal.targetAmount || goal.target || 0,
+                current: goal.currentAmount || goal.current || 0,
+                approved: false,
+                childId: goal.childId,
+                jarId: goal.jarId,
+                childName: goal.childName || 'Unknown Child',
+              }));
+
+              setPendingGoals(processedGoals);
+              return;
+            } else {
+              console.log(
+                'EnhancedDashboard: Direct API call failed with status:',
+                response.status
+              );
+            }
+          } catch (directApiError) {
+            console.error(
+              'EnhancedDashboard: Error with direct API call:',
+              directApiError
+            );
+          }
+
+          console.log(
+            'EnhancedDashboard: All methods to fetch pending goals failed'
+          );
+          setPendingGoals([]);
         } catch (error) {
-          console.error('Failed to fetch goals:', error);
+          console.error(
+            'EnhancedDashboard: Failed to fetch pending goals:',
+            error
+          );
           setPendingGoals([]);
         }
       };
 
       fetchChildren();
-      fetchGoals();
+      fetchPendingGoals();
     }
-  }, [isParent, api, toast]);
+  }, [api, isParent, user?.token]);
 
-  const [childGoals, setChildGoals] = useState<Goal[]>([]);
-
+  // Fetch goals for the selected child or current child user
   useEffect(() => {
-    if (api && selectedChildId) {
-      const fetchChildGoals = async () => {
-        try {
-          const allGoals = await api.getGoals();
-          console.log('All goals:', allGoals);
-          const filteredGoals = Array.isArray(allGoals)
-            ? allGoals.filter(
-                (goal) =>
-                  goal.childId === selectedChildId ||
-                  goal.userId === selectedChildId
-              )
-            : [];
-          setChildGoals(filteredGoals);
-        } catch (error) {
-          console.error('Failed to fetch child goals:', error);
-          setChildGoals([]);
+    const fetchGoals = async () => {
+      if (!api) return;
+
+      try {
+        if (isParent && selectedChildId) {
+          // Parent viewing a child's dashboard
+          console.log(
+            'EnhancedDashboard: Parent fetching goals for child:',
+            selectedChildId
+          );
+
+          setChildGoals([]); // Clear existing goals while loading
+          const fetchedGoals = await api.getGoals(selectedChildId);
+
+          console.log(
+            'EnhancedDashboard: Parent received child goals:',
+            fetchedGoals
+          );
+          setChildGoals(Array.isArray(fetchedGoals) ? fetchedGoals : []);
+
+          // Update selected child name
+          const child = children.find((c) => c.id === selectedChildId);
+          if (child) {
+            setSelectedChildName(child.name);
+          }
+        } else if (isChild) {
+          // Child viewing their own dashboard
+          console.log('EnhancedDashboard: Child user fetching own goals');
+
+          setChildGoals([]); // Clear existing goals while loading
+          const fetchedGoals = await api.getGoals(); // No childId for child users
+
+          console.log(
+            'EnhancedDashboard: Child received own goals:',
+            fetchedGoals
+          );
+          setChildGoals(Array.isArray(fetchedGoals) ? fetchedGoals : []);
         }
-      };
-      fetchChildGoals();
-    } else if (isChild && api) {
-      const fetchOwnGoals = async () => {
-        try {
-          const goals = await api.getGoals();
-          setChildGoals(Array.isArray(goals) ? goals : []);
-        } catch (error) {
-          console.error('Failed to fetch goals:', error);
-          setChildGoals([]);
-        }
-      };
-      fetchOwnGoals();
-    }
-  }, [api, selectedChildId, isChild]);
+      } catch (error) {
+        console.error('EnhancedDashboard: Failed to fetch goals:', error);
+        setChildGoals([]);
+      }
+    };
+
+    fetchGoals();
+  }, [api, selectedChildId, isParent, isChild, children]);
 
   const handleRefreshClick = () => {
-    onRefreshBalance();
-    toast({
-      title: 'Refreshing balance',
-      description: 'Your balance is being updated...',
-    });
+    if (onRefreshBalance) {
+      onRefreshBalance();
+    }
   };
 
   const handleViewChildDashboard = (childId: string) => {
+    console.log('EnhancedDashboard: Setting selected child ID:', childId);
+    setSelectedChildId(childId);
+
+    // Find child name
+    const child = children.find((c) => c.id === childId);
+    if (child) {
+      setSelectedChildName(child.name);
+    }
+
+    // If there's an external handler, call it too
     if (onViewChildDashboard) {
-      console.log('Viewing child dashboard:', childId);
-      setSelectedChildId(childId);
       onViewChildDashboard(childId);
     }
   };
 
   const handleBackToFamily = () => {
-    console.log('Returning to family dashboard');
     setSelectedChildId(null);
-  };
-
-  const handleApproveGoal = async (goalId: string) => {
-    if (!api) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'API not available',
-      });
-      return;
-    }
-    try {
-      await api.approveGoal(goalId);
-      setPendingGoals(pendingGoals.filter((goal) => goal.id !== goalId));
-      setChildGoals((prevGoals) =>
-        prevGoals.map((goal) =>
-          goal.id === goalId ? { ...goal, approved: true } : goal
-        )
-      );
-      toast({
-        title: 'Goal Approved',
-        description: 'The savings goal has been approved.',
-      });
-    } catch (error) {
-      console.error('Failed to approve goal:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to approve goal. Please try again.',
-      });
-    }
-  };
-
-  const handleShowLightning = (childId: string) => {
-    if (!childId) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please select a child to fund their jar',
-      });
-      return;
-    }
-    console.log('Navigating to Lightning payment:', {
-      childId,
-      isParent,
-      isChild,
-    });
-    navigate(`/payment/lightning/${childId}`);
+    setSelectedChildName('');
   };
 
   const handleShowMpesa = (childId: string) => {
-    if (!childId) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Please select a child to fund their jar',
-      });
-      return;
-    }
-    console.log('Navigating to M-Pesa payment:', {
-      childId,
-      isParent,
-      isChild,
-    });
-    navigate(`/payment/mpesa/${childId}`);
+    navigate(`/mpesa/${childId}`);
   };
 
-  const selectedChildName = selectedChildId
-    ? children.find((c) => c.id === selectedChildId)?.name || 'Child'
-    : '';
+  const handleShowLightning = (childId: string) => {
+    navigate(`/lightning/${childId}`);
+  };
+
+  const handleApproveGoal = async (goalId: string) => {
+    try {
+      console.log('Approving goal:', goalId);
+
+      if (api) {
+        await api.approveGoal(goalId);
+      }
+
+      toast({
+        title: 'Goal approved',
+        description: 'The goal has been approved successfully.',
+      });
+
+      // Update pending goals list by removing the approved goal
+      setPendingGoals((prevGoals) =>
+        prevGoals.filter((goal) => goal.id !== goalId)
+      );
+
+      // Refresh goals for the selected child if applicable
+      if (selectedChildId) {
+        const fetchedGoals = await api.getGoals(selectedChildId);
+        if (Array.isArray(fetchedGoals)) {
+          setChildGoals(fetchedGoals);
+        }
+      }
+
+      // Refresh all pending goals
+      fetchPendingGoals();
+    } catch (error) {
+      console.error('Error approving goal:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error approving goal',
+        description: 'Could not approve the goal. Please try again.',
+      });
+    }
+  };
 
   return (
-    <div className='space-y-6 p-6'>
-      <Card className='overflow-hidden'>
-        <div className='bg-gradient-to-br from-yellow-400 to-amber-500 p-6'>
-          <div className='flex justify-between items-center'>
-            <h2 className='text-xl font-bold text-white'>
-              {isParent
-                ? selectedChildId
-                  ? `${selectedChildName}'s Dashboard`
-                  : 'Family Dashboard'
-                : 'My Savings Jar'}
-            </h2>
-            <Button
-              variant='outline'
-              size='sm'
-              className='bg-white text-primary hover:bg-white/90'
-              onClick={handleRefreshClick}
-              disabled={isLoadingBalance}
-            >
-              <RefreshCcw className='mr-2 h-4 w-4' />
-              Refresh
-            </Button>
+    <div className='space-y-4 animate-fade-in'>
+      <Card className='border-border'>
+        <CardContent className='p-0'>
+          <div className='flex items-center justify-between p-4 bg-amber-500 text-white rounded-t-lg'>
+            <div className='flex items-center'>
+              <PiggyBank className='h-6 w-6 mr-2' />
+              <div>
+                <h2 className='text-lg font-bold'>
+                  {isChild || selectedChildId
+                    ? `${
+                        selectedChildName || user?.name || 'Child'
+                      }'s Savings Jar`
+                    : 'Family Savings'}
+                </h2>
+                <p className='text-sm opacity-90'>
+                  {isChild || selectedChildId
+                    ? 'Track your savings and goals'
+                    : 'Manage your family savings'}
+                </p>
+              </div>
+            </div>
+            <div className='flex items-center space-x-2'>
+              <Button
+                variant='ghost'
+                size='icon'
+                className='text-white hover:bg-amber-600 hover:text-white'
+                onClick={handleRefreshClick}
+                disabled={isLoadingBalance}
+              >
+                <RefreshCcw
+                  className={`h-5 w-5 ${
+                    isLoadingBalance ? 'animate-spin' : ''
+                  }`}
+                />
+              </Button>
+              {onLogout && (
+                <Button
+                  variant='ghost'
+                  size='icon'
+                  className='text-white hover:bg-amber-600 hover:text-white'
+                  onClick={onLogout}
+                >
+                  <LogOut className='h-5 w-5' />
+                </Button>
+              )}
+            </div>
           </div>
 
-          {isChild || selectedChildId ? (
-            <ChildDashboardView
-              childId={selectedChildId || user?.id || ''}
-              childName={selectedChildName || user?.name || ''}
-              balance={balance}
-              kesAmount={kesAmount}
-              goals={childGoals}
-              onShowGoals={onShowGoals || (() => {})}
-              onShowHistory={onShowHistory}
-              onShowMpesa={() =>
-                handleShowMpesa(selectedChildId || user?.id || '')
-              }
-              onShowLightning={() =>
-                handleShowLightning(selectedChildId || user?.id || '')
-              }
-              onBackToFamily={handleBackToFamily}
-              isParent={isParent}
-              handleApproveGoal={handleApproveGoal}
-              isLoadingBalance={isLoadingBalance}
-            />
-          ) : (
-            <ParentDashboardView
-              children={children}
-              pendingGoals={pendingGoals}
-              isLoadingChildren={isLoadingChildren}
-              onManageChildren={onManageChildren}
-              onShowLightning={handleShowLightning}
-              onShowMpesa={handleShowMpesa}
-              onShowHistory={onShowHistory}
-              onShowGoals={onShowGoals || (() => {})}
-              onViewChildDashboard={handleViewChildDashboard}
-              handleApproveGoal={handleApproveGoal}
-            />
-          )}
-        </div>
+          <div className='p-4'>
+            {isChild || selectedChildId ? (
+              <ChildDashboardView
+                childId={selectedChildId || user?.id || ''}
+                childName={selectedChildName || user?.name || ''}
+                jarId={children.find((c) => c.id === selectedChildId)?.jarId}
+                balance={balance}
+                kesAmount={kesAmount}
+                goals={childGoals}
+                onShowGoals={onShowGoals || (() => {})}
+                onShowHistory={onShowHistory}
+                onShowMpesa={() =>
+                  handleShowMpesa(selectedChildId || user?.id || '')
+                }
+                onShowLightning={() =>
+                  handleShowLightning(selectedChildId || user?.id || '')
+                }
+                onBackToFamily={handleBackToFamily}
+                isParent={isParent}
+                handleApproveGoal={handleApproveGoal}
+                isLoadingBalance={isLoadingBalance}
+                onShowLearning={onShowLearning}
+                onShowAchievements={onShowAchievements}
+              />
+            ) : (
+              isParent && (
+                <ParentDashboardView
+                  children={children}
+                  pendingGoals={pendingGoals}
+                  isLoadingChildren={isLoadingChildren}
+                  onManageChildren={handleManageChildren}
+                  onShowHistory={onShowHistory}
+                  onShowGoals={onShowGoals}
+                  onViewChildDashboard={handleViewChildDashboard}
+                  handleApproveGoal={handleApproveGoal}
+                  handleSelectPayment={handleSelectPayment}
+                  onShowLearning={handleShowLearning}
+                  onShowAchievements={handleShowAchievements}
+                />
+              )
+            )}
+          </div>
+        </CardContent>
       </Card>
-
-      <div className='flex justify-end'>
-        <Button
-          variant='outline'
-          className='text-destructive hover:text-destructive'
-          onClick={onLogout}
-        >
-          <LogOut className='mr-2 h-4 w-4' />
-          Logout
-        </Button>
-      </div>
     </div>
   );
 };

@@ -79,9 +79,18 @@ export const BalanceProvider: React.FC<{
           userId: user.id,
           childId: effectiveChildId,
         });
+
+        // Clear any cached data to ensure fresh balance
+        const cacheKey = `balance-${effectiveChildId}`;
+        if (window.sessionStorage) {
+          window.sessionStorage.removeItem(cacheKey);
+        }
+
         const response: BalanceResponse = await api.getBalance({
           childId: effectiveChildId,
+          _nocache: Date.now(), // Add cache-busting parameter
         });
+
         setBalance(response.balance);
         console.log('Balance refreshed:', {
           userId: user.id,
@@ -361,10 +370,23 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
       console.log('Lightning status response:', response);
       if (response.paid) {
         setPaymentStatus('completed');
-        // Optimistically update balance
-        setBalance((prev) => (prev ?? 0) + response.amount);
-        await refreshBalance();
-        emitBalanceRefresh();
+
+        // More robust balance update
+        try {
+          // First refresh the balance from the server
+          await refreshBalance();
+
+          // Then emit the balance refresh event to update all components
+          emitBalanceRefresh();
+
+          console.log('Balance refreshed after successful Lightning payment');
+        } catch (balanceError) {
+          console.error(
+            'Error refreshing balance after payment:',
+            balanceError
+          );
+        }
+
         toast({
           title: '🎉 Payment Confirmed',
           description: `${response.amount} sats added.`,
@@ -418,10 +440,23 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
       console.log('M-Pesa status response:', response);
       if (response.completed) {
         setPaymentStatus('completed');
-        // Optimistically update balance (convert KES to sats, e.g., 1 KES = 1000 sats)
-        setBalance((prev) => (prev ?? 0) + response.amount * 1000);
-        await refreshBalance();
-        emitBalanceRefresh();
+
+        // More robust balance update
+        try {
+          // First refresh the balance from the server
+          await refreshBalance();
+
+          // Then emit the balance refresh event to update all components
+          emitBalanceRefresh();
+
+          console.log('Balance refreshed after successful M-Pesa payment');
+        } catch (balanceError) {
+          console.error(
+            'Error refreshing balance after payment:',
+            balanceError
+          );
+        }
+
         toast({
           title: '🎉 Payment Confirmed',
           description: `${response.amount} KES added.`,

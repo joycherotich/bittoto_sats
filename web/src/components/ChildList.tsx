@@ -1,91 +1,105 @@
-import React, { useEffect, useState } from 'react';
-import { createApiClient, ChildResponse } from '@/services/api';
-import { useToast } from '@/hooks/use-toast';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { useChildManagement } from '@/utils/childManagement';
+import AddChildButton from './AddChildButton';
 
-interface ChildListProps {
-  token: string;
+interface Child {
+  id: string;
+  name: string;
+  age: number;
+  jarId: string;
 }
 
-const ChildList: React.FC<ChildListProps> = ({ token }) => {
-  const [children, setChildren] = useState<ChildResponse[]>([]);
+const ChildList: React.FC = () => {
+  const [children, setChildren] = useState<Child[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
-  const api = createApiClient(token);
+  const navigate = useNavigate();
+  const { getChildren } = useChildManagement();
 
   useEffect(() => {
-    const fetchChildren = async () => {
-      try {
-        setLoading(true);
-        const childrenData = await api.getChildren();
-        setChildren(childrenData);
-      } catch (error) {
-        console.error('Error fetching children:', error);
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: 'Failed to load children data',
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchChildren();
-  }, [token]);
+  }, []);
+
+  const fetchChildren = async () => {
+    try {
+      setLoading(true);
+      const childrenData = await getChildren();
+      setChildren(childrenData);
+    } catch (error) {
+      console.error('Error fetching children:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to load children data',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewDashboard = (childId: string) => {
+    // Navigate to the main page with state indicating which child to view
+    navigate('/', {
+      state: {
+        selectedChildId: childId,
+        viewChild: true,
+      },
+    });
+  };
+
+  const handleChildAdded = () => {
+    // Refresh the children list
+    fetchChildren();
+  };
 
   if (loading) {
-    return <div className="flex justify-center p-4">Loading children data...</div>;
-  }
-
-  if (children.length === 0) {
-    return (
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle>No Children Found</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p>You haven't added any children yet.</p>
-          <Button className="mt-4" asChild>
-            <Link to="/add-child">Add Child</Link>
-          </Button>
-        </CardContent>
-      </Card>
-    );
+    return <div className='text-center py-8'>Loading children...</div>;
   }
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {children.map((child) => (
-        <Card key={child.id} className="overflow-hidden">
-          <CardHeader className="bg-primary/10">
-            <CardTitle>{child.name}</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Age:</span>
-                <span>{child.age} years</span>
+    <div className='space-y-4'>
+      <div className='flex justify-end mb-4'>
+        <AddChildButton
+          onSuccess={handleChildAdded}
+          className='bg-green-600 hover:bg-green-700'
+        />
+      </div>
+
+      {children.length === 0 ? (
+        <div className='text-center py-8'>
+          <p className='text-lg mb-4'>No children accounts yet</p>
+          <AddChildButton
+            buttonText='Create Your First Child Account'
+            onSuccess={handleChildAdded}
+            size='lg'
+            className='bg-green-600 hover:bg-green-700'
+          />
+        </div>
+      ) : (
+        children.map((child) => (
+          <Card key={child.id} className='mb-4'>
+            <CardContent className='p-6'>
+              <div className='flex justify-between items-center'>
+                <div>
+                  <h3 className='text-lg font-semibold'>{child.name}</h3>
+                  <p className='text-sm text-gray-500'>Age: {child.age}</p>
+                  <p className='text-xs text-gray-400'>Jar ID: {child.jarId}</p>
+                </div>
+                <Button
+                  onClick={() => handleViewDashboard(child.id)}
+                  className='bg-amber-500 hover:bg-amber-600'
+                >
+                  View Dashboard
+                </Button>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Balance:</span>
-                <span>{child.balance} satoshis</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Jar ID:</span>
-                <span className="text-xs truncate">{child.jarId}</span>
-              </div>
-            </div>
-            <div className="mt-4 flex justify-end space-x-2">
-              <Button variant="outline" size="sm" asChild>
-                <Link to={`/child/${child.id}`}>View Details</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
+        ))
+      )}
     </div>
   );
 };

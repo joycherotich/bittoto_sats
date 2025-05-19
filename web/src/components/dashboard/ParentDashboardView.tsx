@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
 import {
   Wallet,
   History,
@@ -10,6 +11,15 @@ import {
   Users,
   ArrowRight,
   AlertCircle,
+  Book,
+  Award,
+  Check,
+  BookOpen,
+  PiggyBank,
+  Target,
+  Plus,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -37,10 +47,13 @@ interface ParentDashboardViewProps {
   pendingGoals: Goal[];
   isLoadingChildren: boolean;
   onManageChildren?: () => void;
-  onShowHistory: () => void;
-  onShowGoals: () => void;
+  onShowHistory?: () => void;
+  onShowGoals?: () => void;
   onViewChildDashboard: (childId: string) => void;
   handleApproveGoal: (goalId: string) => void;
+  handleSelectPayment: (childId: string) => void;
+  onShowLearning?: (childId?: string) => void;
+  onShowAchievements?: (childId?: string) => void;
 }
 
 const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
@@ -52,285 +65,518 @@ const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
   onShowGoals,
   onViewChildDashboard,
   handleApproveGoal,
+  onShowLearning,
+  onShowAchievements,
 }) => {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const [childrenWithDetails, setChildrenWithDetails] = useState<ChildData[]>(
-    []
-  );
 
-  useEffect(() => {
-    console.log('ParentDashboardView received children:', children);
-    if (Array.isArray(children) && children.length > 0) {
-      setChildrenWithDetails(children);
+  // Add state for collapsible sections
+  const [showChildrenSection, setShowChildrenSection] = useState(true);
+  const [showPendingGoalsSection, setShowPendingGoalsSection] = useState(true);
+  const [showRecentActivitySection, setShowRecentActivitySection] =
+    useState(true);
+  const [showResourcesSection, setShowResourcesSection] = useState(true);
+
+  // Add toggle function
+  const toggleResourcesSection = () => {
+    setShowResourcesSection(!showResourcesSection);
+  };
+
+  // Add handlers for family-wide learning and achievements
+  const handleShowFamilyLearning = () => {
+    if (onShowLearning) {
+      console.log('ParentDashboardView: Showing family learning resources');
+      onShowLearning();
+    } else {
+      console.log('ParentDashboardView: No onShowLearning handler provided');
+      toast({
+        title: 'Feature not available',
+        description: 'Learning resources are not available at the moment.',
+        variant: 'destructive',
+      });
     }
-  }, [children]);
+  };
+
+  const handleShowFamilyAchievements = () => {
+    if (onShowAchievements) {
+      console.log('ParentDashboardView: Showing family achievements');
+      onShowAchievements();
+    } else {
+      console.log(
+        'ParentDashboardView: No onShowAchievements handler provided'
+      );
+      toast({
+        title: 'Feature not available',
+        description: 'Achievements are not available at the moment.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle child-specific learning resources
+  const handleShowChildLearning = (childId: string) => {
+    if (onShowLearning) {
+      console.log(
+        `ParentDashboardView: Showing learning resources for child ${childId}`
+      );
+      onShowLearning(childId);
+    } else {
+      console.log('ParentDashboardView: No onShowLearning handler provided');
+      toast({
+        title: 'Feature not available',
+        description: 'Learning resources are not available at the moment.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Handle child-specific achievements
+  const handleShowChildAchievements = (childId: string) => {
+    if (onShowAchievements) {
+      console.log(
+        `ParentDashboardView: Showing achievements for child ${childId}`
+      );
+      onShowAchievements(childId);
+    } else {
+      console.log(
+        'ParentDashboardView: No onShowAchievements handler provided'
+      );
+      toast({
+        title: 'Feature not available',
+        description: 'Achievements are not available at the moment.',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // Toggle functions for section visibility
+  const toggleChildrenSection = () =>
+    setShowChildrenSection(!showChildrenSection);
+  const togglePendingGoalsSection = () =>
+    setShowPendingGoalsSection(!showPendingGoalsSection);
+  const toggleRecentActivitySection = () =>
+    setShowRecentActivitySection(!showRecentActivitySection);
+
+  // Add a function to handle the manage children button click
+  const handleManageChildrenClick = () => {
+    if (onManageChildren) {
+      console.log(
+        'ParentDashboardView: Using provided onManageChildren callback'
+      );
+      onManageChildren();
+    } else {
+      // Fallback to navigation if the callback isn't provided
+      console.log(
+        'ParentDashboardView: Navigating to /children management page'
+      );
+      navigate('/children');
+    }
+  };
+
+  // Debug logging
+  useEffect(() => {
+    console.log('ParentDashboardView rendered with:');
+    console.log('- children:', children);
+    console.log('- pendingGoals:', pendingGoals);
+    console.log('- isLoadingChildren:', isLoadingChildren);
+  }, [children, pendingGoals, isLoadingChildren]);
 
   const handleSelectPayment = (childId: string) => {
     console.log('Navigating to payment selection for child:', childId);
     navigate(`/payment/select/${childId}`);
   };
 
+  const handleViewChildDashboard = (childId: string) => {
+    if (!childId) {
+      console.error('No childId provided to handleViewChildDashboard');
+      return;
+    }
+
+    console.log('ParentDashboardView: Viewing child dashboard:', childId);
+    onViewChildDashboard(childId);
+  };
+
   return (
     <div className='space-y-6 p-4 sm:p-6 max-w-7xl mx-auto'>
-      <div className='mt-6'>
-        <h1 className='text-2xl font-bold text-gray-900'>Family Dashboard</h1>
-        <p className='text-gray-600 text-sm mt-1'>
-          Manage your children's savings jars and approve their goals
+      <div className='mt-2'>
+        <h1 className='text-2xl font-bold text-gray-900 dark:text-white'>
+          Family Dashboard
+        </h1>
+        <p className='text-gray-600 dark:text-gray-400 text-sm mt-1'>
+          Manage your family's savings jars and goals
         </p>
       </div>
 
-      <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
-        {onManageChildren && (
+      {/* Children's Savings Jars Section */}
+      <section className='bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden'>
+        <div className='flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700'>
+          <div className='flex items-center'>
+            <PiggyBank className='h-5 w-5 text-amber-500 mr-2' />
+            <h2 className='text-xl font-semibold'>Children's Savings Jars</h2>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={toggleChildrenSection}
+              className='ml-2 h-8 w-8 p-0'
+            >
+              {showChildrenSection ? (
+                <ChevronUp className='h-4 w-4' />
+              ) : (
+                <ChevronDown className='h-4 w-4' />
+              )}
+              <span className='sr-only'>
+                {showChildrenSection ? 'Hide children' : 'Show children'}
+              </span>
+            </Button>
+          </div>
           <Button
             variant='outline'
-            className='w-full bg-white text-purple-600 border-purple-500 hover:bg-purple-50'
-            onClick={onManageChildren}
+            size='sm'
+            className='text-amber-600 border-amber-600 hover:bg-amber-50'
+            onClick={handleManageChildrenClick}
           >
             <Users className='mr-2 h-4 w-4' />
             Manage Children
           </Button>
-        )}
-        <Link to='/parental-controls' className='w-full'>
-          <Button
-            variant='outline'
-            className='w-full bg-white text-purple-600 border-purple-500 hover:bg-purple-50'
-          >
-            <Settings className='mr-2 h-4 w-4' />
-            Parental Controls
-          </Button>
-        </Link>
-      </div>
+        </div>
 
-      <Card className='shadow-sm border-gray-200'>
-        <CardHeader>
-          <CardTitle className='text-xl font-semibold text-gray-800'>
-            Children's Savings Jars
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {isLoadingChildren ? (
-            <div className='flex justify-center py-6'>
-              <div className='animate-spin rounded-full h-10 w-10 border-t-2 border-amber-500'></div>
-            </div>
-          ) : !Array.isArray(childrenWithDetails) ||
-            childrenWithDetails.length === 0 ? (
-            <div className='text-center py-8'>
-              <p className='text-gray-500 text-sm'>
-                No savings jars found for your children.
-              </p>
-              {onManageChildren && (
+        {showChildrenSection && (
+          <div className='p-4'>
+            {isLoadingChildren ? (
+              <div className='flex justify-center py-6'>
+                <div className='animate-spin rounded-full h-10 w-10 border-t-2 border-amber-500'></div>
+              </div>
+            ) : !Array.isArray(children) || children.length === 0 ? (
+              <div className='text-center py-6'>
+                <div className='bg-gray-100 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4'>
+                  <Users className='h-8 w-8 text-gray-500 dark:text-gray-400' />
+                </div>
+                <p className='text-gray-600 dark:text-gray-400 mb-4'>
+                  No savings jars found for your children.
+                </p>
                 <Button
                   variant='outline'
-                  className='mt-4 text-amber-600 border-amber-600 hover:bg-amber-50'
-                  onClick={onManageChildren}
+                  className='mt-2 text-amber-600 border-amber-600 hover:bg-amber-50'
+                  onClick={handleManageChildrenClick}
                 >
                   <Users className='mr-2 h-4 w-4' />
                   Add Child Account
                 </Button>
-              )}
-            </div>
-          ) : (
-            <div className='grid gap-4 sm:grid-cols-2 lg:grid-cols-3'>
-              {childrenWithDetails.map((child) => (
-                <Card
-                  key={child.id}
-                  className='bg-white hover:bg-gray-50 transition-colors border-gray-100'
-                >
-                  <CardContent className='p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4'>
+              </div>
+            ) : (
+              <div className='grid grid-cols-1 gap-4'>
+                {children.map((child) => (
+                  <div
+                    key={child.id}
+                    className='bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4'
+                  >
                     <div className='flex items-center space-x-4'>
-                      <div className='bg-amber-100 p-2 rounded-full flex-shrink-0'>
-                        <img
-                          src='/favicon.png'
-                          alt='Savings Jar'
-                          className='h-8 w-8 object-contain'
-                        />
+                      <div className='bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full'>
+                        <PiggyBank className='h-8 w-8 text-amber-500' />
                       </div>
                       <div>
-                        {/* <h3 className='font-medium text-gray-900'>
+                        <h3 className='font-medium text-gray-900 dark:text-white'>
                           {child.name || 'Unknown'}
-                        </h3> */}
-                        <p className='text-sm text-gray-500'>
-                          Jar ID: {child.jarId || 'N/A'}
-                          {/* Age: {child.age || 'Unknown'} | */}
+                        </h3>
+                        <p className='text-sm text-gray-500 dark:text-gray-400'>
+                          Jar ID:{' '}
+                          <span className='font-mono'>
+                            {child.jarId || 'N/A'}
+                          </span>
                         </p>
-                        {/* <p className='text-sm font-semibold text-gray-700 mt-1'>
-                          Balance: KES {child.balance?.toFixed(2) || '0.00'}
-                        </p> */}
+                        <p className='text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1'>
+                          Balance: {child.balance?.toLocaleString() || '0'} sats
+                        </p>
                       </div>
                     </div>
-                    <div className='flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto'>
+                    <div className='flex flex-wrap gap-2 w-full sm:w-auto'>
                       <Button
                         variant='ghost'
                         size='sm'
-                        className='text-amber-600 hover:text-amber-700 hover:bg-amber-50 w-full sm:w-auto'
-                        onClick={() => {
-                          console.log('Viewing child dashboard:', child.id);
-                          onViewChildDashboard(child.id);
-                        }}
+                        className='text-amber-600 hover:text-amber-700 hover:bg-amber-50'
+                        onClick={() => onViewChildDashboard(child.id)}
                       >
-                        View Dashboard
-                        <ArrowRight className='ml-2 h-4 w-4' />
+                        <ArrowRight className='mr-2 h-4 w-4' />
+                        Dashboard
                       </Button>
                       <Button
-                        variant='outline'
+                        variant='ghost'
                         size='sm'
-                        className='text-blue-600 border-blue-600 hover:text-blue-700 hover:bg-blue-50 w-full sm:w-auto'
+                        className='text-green-600 hover:text-green-700 hover:bg-green-50'
                         onClick={() => handleSelectPayment(child.id)}
                       >
+                        <Plus className='mr-2 h-4 w-4' />
                         Add Funds
-                        <Wallet className='ml-2 h-4 w-4' />
+                      </Button>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        className='text-blue-600 hover:text-blue-700 hover:bg-blue-50'
+                        onClick={() => handleShowChildLearning(child.id)}
+                      >
+                        <Book className='mr-2 h-4 w-4' />
+                        Learning
+                      </Button>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        className='text-purple-600 hover:text-purple-700 hover:bg-purple-50'
+                        onClick={() => handleShowChildAchievements(child.id)}
+                      >
+                        <Award className='mr-2 h-4 w-4' />
+                        Achievements
                       </Button>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
-      <Card className='mt-6 shadow-sm border-gray-200'>
-        <CardHeader className='flex flex-row items-center justify-between'>
-          <CardTitle className='text-xl font-semibold text-gray-800'>
-            Pending Goals for Approval
-          </CardTitle>
+      {/* Recent Activity Section */}
+      <section className='bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden'>
+        <div className='flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700'>
+          <div className='flex items-center'>
+            <History className='h-5 w-5 text-blue-500 mr-2' />
+            <h2 className='text-xl font-semibold'>Recent Activity</h2>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={toggleRecentActivitySection}
+              className='ml-2 h-8 w-8 p-0'
+            >
+              {showRecentActivitySection ? (
+                <ChevronUp className='h-4 w-4' />
+              ) : (
+                <ChevronDown className='h-4 w-4' />
+              )}
+            </Button>
+          </div>
+          <Button
+            variant='outline'
+            size='sm'
+            className='text-blue-600 border-blue-600 hover:bg-blue-50'
+            onClick={onShowHistory}
+          >
+            <History className='mr-2 h-4 w-4' />
+            View All
+          </Button>
+        </div>
+
+        {showRecentActivitySection && (
+          <div className='p-4'>
+            <div className='text-center py-4 text-gray-500 dark:text-gray-400'>
+              No recent activity to display.
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* Pending Goals Section */}
+      <section className='bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden'>
+        <div className='flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700'>
+          <div className='flex items-center'>
+            <Target className='h-5 w-5 text-amber-500 mr-2' />
+            <h2 className='text-xl font-semibold'>
+              Savings Goals Pending Approval
+            </h2>
+            {Array.isArray(pendingGoals) && pendingGoals.length > 0 && (
+              <div className='ml-2 bg-amber-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-medium'>
+                {pendingGoals.length}
+              </div>
+            )}
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={togglePendingGoalsSection}
+              className='ml-2 h-8 w-8 p-0'
+            >
+              {showPendingGoalsSection ? (
+                <ChevronUp className='h-4 w-4' />
+              ) : (
+                <ChevronDown className='h-4 w-4' />
+              )}
+            </Button>
+          </div>
           <Button
             variant='outline'
             size='sm'
             className='text-amber-600 border-amber-600 hover:bg-amber-50'
             onClick={onShowGoals}
           >
-            <Star className='mr-2 h-4 w-4' />
+            <Target className='mr-2 h-4 w-4' />
             Manage All Goals
           </Button>
-        </CardHeader>
-        <CardContent>
-          {pendingGoals.length === 0 ? (
-            <div className='text-center py-8'>
-              <p className='text-gray-500 text-sm'>
-                No pending goals require approval
-              </p>
-            </div>
-          ) : (
-            <div className='space-y-4'>
-              {pendingGoals.map((goal) => (
-                <div
-                  key={goal.id}
-                  className='bg-amber-50 p-4 rounded-lg border border-amber-100'
-                >
-                  <div className='flex justify-between items-start'>
-                    <div className='flex items-center space-x-3'>
-                      <div className='bg-amber-100 p-1 rounded-full flex-shrink-0'>
-                        <img
-                          src='/favicon.png'
-                          alt='Goal Jar'
-                          className='h-6 w-6 object-contain'
-                        />
-                      </div>
-                      <div>
-                        <h3 className='font-medium text-gray-900'>
-                          {goal.name}
-                          {goal.childName && (
-                            <span className='ml-2 text-sm text-gray-500'>
-                              ({goal.childName})
-                            </span>
-                          )}
-                        </h3>
-                        <p className='text-sm text-gray-500'>
-                          Jar ID: {goal.jarId || 'N/A'}
-                        </p>
-                        <p className='text-sm text-gray-500 mt-1'>
-                          Target: {goal.target} sats
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      size='sm'
-                      onClick={() => handleApproveGoal(goal.id)}
-                      className='bg-green-500 hover:bg-green-600 text-white'
-                    >
-                      Approve
-                    </Button>
+        </div>
+
+        {showPendingGoalsSection && (
+          <div className='p-4'>
+            {Array.isArray(pendingGoals) && pendingGoals.length > 0 ? (
+              <div className='space-y-4'>
+                {/* Show a summary instead of all details */}
+                <div className='flex justify-between items-center'>
+                  <div>
+                    <h3 className='font-medium text-lg'>
+                      {pendingGoals.length}{' '}
+                      {pendingGoals.length === 1 ? 'Goal' : 'Goals'} Pending
+                      Approval
+                    </h3>
+                    <p className='text-sm text-gray-500 dark:text-gray-400'>
+                      {pendingGoals
+                        .map((goal) => goal.childName || 'Unknown')
+                        .join(', ')}
+                    </p>
                   </div>
-                  <div className='mt-3'>
-                    <div className='flex justify-between text-xs text-gray-500 mb-1'>
-                      <span>Progress</span>
+                  <Button
+                    variant='default'
+                    size='sm'
+                    className='bg-amber-500 hover:bg-amber-600 text-white'
+                    onClick={onShowGoals}
+                  >
+                    <Check className='mr-2 h-4 w-4' />
+                    Review Goals
+                  </Button>
+                </div>
+
+                {/* Optional: Show the first pending goal as an example */}
+                {pendingGoals.length > 0 && (
+                  <div className='border-t pt-3 mt-3'>
+                    <div className='flex justify-between items-center'>
+                      <div>
+                        <h4 className='font-medium'>{pendingGoals[0].name}</h4>
+                        <p className='text-sm text-gray-500'>
+                          Child: {pendingGoals[0].childName || 'Unknown'}
+                        </p>
+                      </div>
+                      <Button
+                        variant='outline'
+                        size='sm'
+                        className='text-green-600 border-green-600 hover:bg-green-50'
+                        onClick={() => handleApproveGoal(pendingGoals[0].id)}
+                      >
+                        <Check className='mr-2 h-4 w-4' />
+                        Approve
+                      </Button>
+                    </div>
+                    <div className='flex justify-between text-sm text-gray-700 dark:text-gray-300 mt-2'>
                       <span>
-                        {Math.round((goal.current / goal.target) * 100)}%
+                        Progress:{' '}
+                        {pendingGoals[0].current?.toLocaleString() || '0'} /{' '}
+                        {pendingGoals[0].target?.toLocaleString() || '0'} sats
+                      </span>
+                      <span>
+                        {Math.round(
+                          (pendingGoals[0].current / pendingGoals[0].target) *
+                            100
+                        )}
+                        %
                       </span>
                     </div>
-                    <div className='bg-gray-200 h-2 rounded-full overflow-hidden'>
-                      <div
-                        className='bg-amber-500 h-full'
-                        style={{
-                          width: `${Math.round(
-                            (goal.current / goal.target) * 100
-                          )}%`,
-                        }}
-                      ></div>
-                    </div>
+                    <Progress
+                      value={
+                        (pendingGoals[0].current / pendingGoals[0].target) * 100
+                      }
+                      className='h-2 mt-1'
+                    />
+                    {pendingGoals.length > 1 && (
+                      <p className='text-sm text-center mt-3 text-gray-500'>
+                        + {pendingGoals.length - 1} more{' '}
+                        {pendingGoals.length - 1 === 1 ? 'goal' : 'goals'}{' '}
+                        pending approval
+                      </p>
+                    )}
                   </div>
+                )}
+              </div>
+            ) : (
+              <div className='text-center py-6'>
+                <div className='bg-amber-100 dark:bg-amber-900/30 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4'>
+                  <Target className='h-8 w-8 text-amber-500' />
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card className='mt-6 shadow-sm border-gray-200'>
-        <CardHeader className='flex flex-row items-center justify-between'>
-          <CardTitle className='text-xl font-semibold text-gray-800'>
-            Recent Activity
-          </CardTitle>
-          <Button
-            variant='outline'
-            size='sm'
-            className='text-amber-600 border-amber-600 hover:bg-amber-50'
-            onClick={onShowHistory}
-          >
-            <History className='mr-2 h-4 w-4' />
-            View All
-          </Button>
-        </CardHeader>
-        <CardContent className='p-4'>
-          {childrenWithDetails.length === 0 ? (
-            <div className='text-center py-8'>
-              <p className='text-gray-500 text-sm'>No recent activity</p>
-            </div>
-          ) : (
-            <ul className='space-y-3'>
-              {childrenWithDetails.map((child) => (
-                <li
-                  key={`activity-${child.id}`}
-                  className='p-3 bg-gray-50 rounded-md flex justify-between items-center'
+                <p className='text-gray-600 dark:text-gray-400 mb-4'>
+                  No savings goals pending approval.
+                </p>
+                <Button
+                  variant='outline'
+                  className='mt-2 text-amber-600 border-amber-600 hover:bg-amber-50'
+                  onClick={onShowGoals}
                 >
-                  <div className='flex items-center space-x-3'>
-                    <div className='bg-amber-100 p-1 rounded-full flex-shrink-0'>
-                      <img
-                        src='/favicon.png'
-                        alt='Activity Jar'
-                        className='h-6 w-6 object-contain'
-                      />
-                    </div>
-                    <div>
-                      <p className='font-medium text-gray-900'>
-                        {child.name || 'Unknown'}’s Jar
-                      </p>
-                      <p className='text-xs text-gray-500'>
-                        Jar ID: {child.jarId || 'N/A'}
-                      </p>
-                    </div>
-                  </div>
-                  {/* <span className='text-emerald-600 font-semibold text-sm'>
-                    KES {child.balance?.toFixed(2) || '0.00'}
-                  </span> */}
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+                  <Target className='mr-2 h-4 w-4' />
+                  View All Goals
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* Learning and Achievements Section */}
+      <section className='bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden'>
+        <div className='flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700'>
+          <div className='flex items-center'>
+            <BookOpen className='h-5 w-5 text-indigo-500 mr-2' />
+            <h2 className='text-xl font-semibold'>Family Resources</h2>
+            <Button
+              variant='ghost'
+              size='sm'
+              onClick={toggleResourcesSection}
+              className='ml-2 h-8 w-8 p-0'
+            >
+              {showResourcesSection ? (
+                <ChevronUp className='h-4 w-4' />
+              ) : (
+                <ChevronDown className='h-4 w-4' />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {showResourcesSection && (
+          <div className='p-4'>
+            <div className='grid grid-cols-1 md:grid-cols-2 gap-6'>
+              <div className='bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4'>
+                <div className='flex items-center mb-3'>
+                  <Book className='h-6 w-6 text-blue-500 mr-2' />
+                  <h3 className='text-lg font-semibold'>Financial Learning</h3>
+                </div>
+                <p className='text-gray-600 dark:text-gray-400 mb-4 text-sm'>
+                  Help your children learn about money management and savings
+                  with interactive lessons.
+                </p>
+                <Button
+                  variant='outline'
+                  className='text-blue-600 border-blue-600 hover:bg-blue-100'
+                  onClick={handleShowFamilyLearning}
+                >
+                  <Book className='mr-2 h-4 w-4' />
+                  Explore Learning Resources
+                </Button>
+              </div>
+
+              <div className='bg-green-50 dark:bg-green-900/20 rounded-lg p-4'>
+                <div className='flex items-center mb-3'>
+                  <Award className='h-6 w-6 text-green-500 mr-2' />
+                  <h3 className='text-lg font-semibold'>Family Achievements</h3>
+                </div>
+                <p className='text-gray-600 dark:text-gray-400 mb-4 text-sm'>
+                  Celebrate your family's savings milestones and achievements.
+                </p>
+                <Button
+                  variant='outline'
+                  className='text-green-600 border-green-600 hover:bg-green-100'
+                  onClick={handleShowFamilyAchievements}
+                >
+                  <Award className='mr-2 h-4 w-4' />
+                  View Achievements
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </section>
     </div>
   );
 };

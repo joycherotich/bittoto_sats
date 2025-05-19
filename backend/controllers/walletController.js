@@ -383,61 +383,56 @@ const getChildBalance = async (req, res) => {
 // Get child's transactions (parent only)
 const getChildTransactions = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const userRole = req.user.role;
     const { childId } = req.params;
+    const parentId = req.user.id;
+    const { limit = 20, offset = 0 } = req.query;
 
-    console.log('Getting child transactions:', { userId, userRole, childId });
+    console.log(
+      `Parent ${parentId} requesting transactions for child ${childId}`
+    );
 
-    if (userRole !== 'parent') {
-      console.error('Non-parent attempted to access child transactions');
-      return res
-        .status(403)
-        .json({ error: 'Only parents can access child transactions' });
-    }
-
+    // Verify child belongs to parent
     const childDoc = await firestore.collection('children').doc(childId).get();
+
     if (!childDoc.exists) {
-      console.error('Child not found:', childId);
       return res.status(404).json({ error: 'Child not found' });
     }
 
     const childData = childDoc.data();
-    if (childData.parentId !== userId) {
-      console.error('Child not associated with parent:', {
-        childId,
-        parentId: userId,
+
+    if (childData.parentId !== parentId) {
+      return res.status(403).json({
+        error: 'You do not have permission to view transactions for this child',
       });
-      return res
-        .status(403)
-        .json({ error: 'You do not have permission to access this child' });
     }
 
-    const transactionsSnapshot = await firestore
+    // Get transactions
+    const transactionsQuery = await firestore
       .collection('transactions')
       .where('userId', '==', childId)
       .orderBy('timestamp', 'desc')
-      .limit(50)
+      .limit(parseInt(limit))
+      .offset(parseInt(offset))
       .get();
 
     const transactions = [];
-    transactionsSnapshot.forEach((doc) => {
-      const transaction = doc.data();
+
+    transactionsQuery.forEach((doc) => {
       transactions.push({
         id: doc.id,
-        ...transaction,
-        timestamp: transaction.timestamp.toDate(),
+        ...doc.data(),
+        timestamp: doc.data().timestamp.toDate(),
       });
     });
 
+    console.log(
+      `Retrieved ${transactions.length} transactions for child ${childId}`
+    );
+
     res.json(transactions);
   } catch (error) {
-    console.error('Get child transactions error:', error.stack);
-    logger.error('Get child transactions error:', error);
-    res.status(500).json({
-      error: 'Failed to get child transactions',
-      details: error.message,
-    });
+    console.error('Get child transactions error:', error);
+    res.status(500).json({ error: 'Failed to get transactions' });
   }
 };
 

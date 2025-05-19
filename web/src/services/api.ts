@@ -170,96 +170,197 @@ export const authApi = {
   },
 };
 
-export const createApiClient = (token: string) => {
-  const headers = {
+const getAuthHeaders = (token?: string) => {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
+  };
+
+  // Use the provided token or the one from the closure
+  const authToken = token || getToken();
+
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+
+  return headers;
+};
+
+export const createApiClient = (initialToken: string) => {
+  // Store token in closure
+  let token = initialToken;
+
+  // Function to get the current token
+  const getToken = () => token;
+
+  // Function to update the token
+  const updateToken = (newToken: string) => {
+    token = newToken;
   };
 
   return {
     // Balance and transaction endpoints
-    getBalance: async (): Promise<{ balance: number }> => {
-      try {
-        const userRole = localStorage.getItem('userRole');
-        console.log('Fetching balance for user role:', userRole);
+    getBalance: async (): Promise<BalanceResponse> => {
+      const maxRetries = 3;
+      let retryCount = 0;
 
-        const useMockData = false; // Set to false
-        if (useMockData) {
-          console.log('Using mock balance for presentation');
-          return { balance: 1000 };
+      while (retryCount < maxRetries) {
+        try {
+          console.log(
+            `Fetching user balance (attempt ${retryCount + 1}/${maxRetries})`
+          );
+
+          // Add a timeout to the fetch request
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+          const response = await fetch(`${API_URL}/wallet/balance`, {
+            headers: getAuthHeaders(token),
+            cache: 'no-store', // Ensure we don't use cached balance
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Balance error response:', errorText);
+            throw new Error(
+              errorText || `Failed to fetch balance: ${response.status}`
+            );
+          }
+
+          const result = await response.json();
+          console.log('Balance result:', result);
+          return result;
+        } catch (error: any) {
+          retryCount++;
+          console.error(
+            `Failed to fetch balance (attempt ${retryCount}/${maxRetries}):`,
+            error
+          );
+
+          if (error.name === 'AbortError') {
+            console.warn('Balance request timed out');
+          }
+
+          if (retryCount >= maxRetries) {
+            console.error('Max retries reached for balance fetch');
+            // Return a default balance to prevent UI from breaking
+            return { balance: 0, lastUpdated: new Date().toISOString() };
+          }
+
+          // Wait before retrying (exponential backoff)
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1))
+          );
+        }
+      }
+
+      // This should never be reached due to the return in the catch block
+      return { balance: 0, lastUpdated: new Date().toISOString() };
+    },
+
+    getChildBalance: async (childId: string): Promise<BalanceResponse> => {
+      const maxRetries = 3;
+      let retryCount = 0;
+
+      while (retryCount < maxRetries) {
+        try {
+          console.log(
+            `Fetching child ${childId} balance (attempt ${
+              retryCount + 1
+            }/${maxRetries})`
+          );
+
+          // Add a timeout to the fetch request
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+          const response = await fetch(
+            `${API_URL}/parent/children/${childId}/balance`,
+            {
+              headers: getAuthHeaders(token),
+              cache: 'no-store', // Ensure we don't use cached balance
+              signal: controller.signal,
+            }
+          );
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Child balance error response:', errorText);
+            throw new Error(
+              errorText || `Failed to fetch child balance: ${response.status}`
+            );
+          }
+
+          const result = await response.json();
+          console.log('Child balance result:', result);
+          return result;
+        } catch (error: any) {
+          retryCount++;
+          console.error(
+            `Failed to fetch child ${childId} balance (attempt ${retryCount}/${maxRetries}):`,
+            error
+          );
+
+          if (error.name === 'AbortError') {
+            console.warn('Child balance request timed out');
+          }
+
+          if (retryCount >= maxRetries) {
+            console.error('Max retries reached for child balance fetch');
+            // Return a default balance to prevent UI from breaking
+            return { balance: 0, lastUpdated: new Date().toISOString() };
+          }
+
+          // Wait before retrying (exponential backoff)
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1))
+          );
+        }
+      }
+
+      // This should never be reached due to the return in the catch block
+      return { balance: 0, lastUpdated: new Date().toISOString() };
+    },
+    getTransactions: async (options?: {
+      childId?: string;
+      limit?: number;
+      offset?: number;
+    }): Promise<any[]> => {
+      try {
+        const { childId, limit = 20, offset = 0 } = options || {};
+
+        console.log('Fetching transactions:', { childId, limit, offset });
+
+        // Determine the correct endpoint based on whether this is for a child
+        let endpoint = `${API_URL}/wallet/transactions?limit=${limit}&offset=${offset}`;
+
+        if (childId) {
+          // For child transactions, use the parent/children endpoint
+          endpoint = `${API_URL}/parent/children/${childId}/transactions?limit=${limit}&offset=${offset}`;
+          console.log(`Using child transactions endpoint: ${endpoint}`);
         }
 
-        const endpoint = `${API_URL}/wallet/balance`;
-        console.log(`Using balance endpoint: ${endpoint}`);
-
-        const response = await fetch(endpoint, { headers });
-        console.log(`Balance response status:`, response.status);
+        const response = await fetch(endpoint, {
+          headers: getAuthHeaders(token),
+        });
 
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Balance error response:', errorText);
-          throw new Error(errorText);
+          console.error('Transactions error response:', errorText);
+          throw new Error(errorText || 'Failed to fetch transactions');
         }
 
         const result = await response.json();
-        console.log('Balance result:', result);
-        return { balance: result.balance || 0 };
-      } catch (error) {
-        console.error('Failed to fetch balance:', error);
-        throw error;
-      }
-    },
+        console.log('Transactions result:', result);
 
-    getChildBalance: async (childId: string): Promise<{ balance: number }> => {
-      try {
-        console.log(`Fetching balance for child ID: ${childId}`);
-
-        const useMockData = false; // Set to false
-        if (useMockData) {
-          console.log('Using mock child balance for presentation');
-          return { balance: 750 };
-        }
-
-        const endpoint = `${API_URL}/parent/children/${childId}/balance`;
-        console.log(`Using child balance endpoint: ${endpoint}`);
-
-        const response = await fetch(endpoint, { headers });
-        console.log(`Child balance response status:`, response.status);
-
-        if (!response.ok) {
-          console.log('Balance endpoint failed, trying to get child data');
-          const fallbackResponse = await fetch(
-            `${API_URL}/parent/children/${childId}`,
-            { headers }
-          );
-          if (fallbackResponse.ok) {
-            const childData = await fallbackResponse.json();
-            console.log('Child data received from fallback:', childData);
-            if (childData && typeof childData.balance === 'number') {
-              return { balance: childData.balance };
-            }
-          }
-          throw new Error('Failed to fetch child balance');
-        }
-
-        const result = await response.json();
-        console.log('Child balance result:', result);
-        return { balance: result.balance || 0 };
-      } catch (error) {
-        console.error(`Failed to fetch balance for child ${childId}:`, error);
-        throw error;
-      }
-    },
-    getTransactions: async (): Promise<any[]> => {
-      try {
-        const response = await fetch(`${API_URL}/wallet/transactions`, {
-          headers,
-        });
-        const result = await handleResponse<any[]>(response);
         return Array.isArray(result) ? result : [];
       } catch (error) {
         console.error('Failed to fetch transactions:', error);
-        return [];
+        throw error;
       }
     },
 
@@ -270,7 +371,7 @@ export const createApiClient = (token: string) => {
         console.log(`Using child transactions endpoint: ${endpoint}`);
 
         const response = await fetch(endpoint, {
-          headers,
+          headers: getAuthHeaders(token),
         });
         console.log(`Child transactions response status:`, response.status);
 
@@ -279,7 +380,7 @@ export const createApiClient = (token: string) => {
           console.log('Parent endpoint failed, trying wallet endpoint');
           const fallbackEndpoint = `${API_URL}/wallet/child/${childId}/transactions`;
           const fallbackResponse = await fetch(fallbackEndpoint, {
-            headers,
+            headers: getAuthHeaders(token),
           });
 
           if (fallbackResponse.ok) {
@@ -322,7 +423,7 @@ export const createApiClient = (token: string) => {
 
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers,
+          headers: getAuthHeaders(token),
           body: JSON.stringify({
             phoneNumber: data.phoneNumber,
             amount: data.amount,
@@ -364,7 +465,7 @@ export const createApiClient = (token: string) => {
       const response = await fetch(
         `${API_URL}/payments/status/${transactionId}`,
         {
-          headers,
+          headers: getAuthHeaders(token),
         }
       );
       return handleResponse<any>(response);
@@ -417,12 +518,12 @@ export const createApiClient = (token: string) => {
           memo: data.memo || 'BIT Toto Deposit',
         };
 
-        console.log('Request headers:', headers);
+        console.log('Request headers:', getAuthHeaders(token));
         console.log('Request body:', requestBody);
 
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers,
+          headers: getAuthHeaders(token),
           body: JSON.stringify(requestBody),
         });
 
@@ -470,7 +571,7 @@ export const createApiClient = (token: string) => {
 
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers,
+          headers: getAuthHeaders(token),
           body: JSON.stringify({
             phoneNumber: data.phoneNumber,
             amount: data.amount,
@@ -551,12 +652,12 @@ export const createApiClient = (token: string) => {
     //       memo: data.memo || 'BIT Toto Deposit',
     //     };
 
-    //     console.log('Request headers:', headers);
+    //     console.log('Request headers:', getAuthHeaders(token));
     //     console.log('Request body:', requestBody);
 
     //     const response = await fetch(endpoint, {
     //       method: 'POST',
-    //       headers,
+    //       headers: getAuthHeaders(token),
     //       body: JSON.stringify(requestBody),
     //     });
 
@@ -579,7 +680,7 @@ export const createApiClient = (token: string) => {
 
     checkInvoiceStatus: async (paymentHash: string): Promise<any> => {
       const response = await fetch(`${API_URL}/wallet/invoice/${paymentHash}`, {
-        headers,
+        headers: getAuthHeaders(token),
       });
       return handleResponse<any>(response);
     },
@@ -590,7 +691,7 @@ export const createApiClient = (token: string) => {
     }): Promise<any> => {
       const response = await fetch(`${API_URL}/wallet/withdraw`, {
         method: 'POST',
-        headers,
+        headers: getAuthHeaders(token),
         body: JSON.stringify(data),
       });
       return handleResponse<any>(response);
@@ -605,7 +706,7 @@ export const createApiClient = (token: string) => {
       try {
         const response = await fetch(`${API_URL}/goals`, {
           method: 'POST',
-          headers,
+          headers: getAuthHeaders(token),
           body: JSON.stringify(data),
         });
         const result = await handleResponse<any>(response);
@@ -617,29 +718,55 @@ export const createApiClient = (token: string) => {
       }
     },
 
-    getGoals: async (): Promise<any[]> => {
+    getGoals: async (childId?: string) => {
       try {
-        console.log('Fetching goals...');
-        const response = await fetch(`${API_URL}/goals`, {
-          headers,
-        });
-        console.log('Goals response status:', response.status);
+        let url = `${API_URL}/goals`;
 
-        // Handle different response formats
-        const result = await response.json();
-        console.log('Raw goals response:', result);
+        // If childId is provided, use the parent endpoint for child goals
+        if (childId) {
+          // Update the URL to match your backend route structure
+          // Try this format instead:
+          url = `${API_URL}/parent/children/${childId}/goals`;
 
-        // Check if the response is an array or has a goals property
-        if (Array.isArray(result)) {
-          return result;
-        } else if (result && Array.isArray(result.goals)) {
-          return result.goals;
-        } else {
-          console.warn('Unexpected goals response format:', result);
-          return [];
+          // If that doesn't work, try these alternative formats:
+          // url = `${API_URL}/goals?childId=${childId}`;
+          // url = `${API_URL}/parent/goals?childId=${childId}`;
         }
+
+        console.log('Fetching goals from:', url);
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: getAuthHeaders(token),
+        });
+
+        if (!response.ok) {
+          // If the first endpoint fails, try a fallback endpoint
+          if (childId && response.status === 404) {
+            console.log('First endpoint failed, trying fallback endpoint');
+            const fallbackUrl = `${API_URL}/goals?childId=${childId}`;
+            console.log('Trying fallback URL:', fallbackUrl);
+
+            const fallbackResponse = await fetch(fallbackUrl, {
+              method: 'GET',
+              headers: getAuthHeaders(token),
+            });
+
+            if (fallbackResponse.ok) {
+              const data = await fallbackResponse.json();
+              console.log('Goals data from fallback:', data);
+              return Array.isArray(data) ? data : [];
+            }
+          }
+
+          throw new Error(`Failed to fetch goals: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Goals data:', data);
+        return Array.isArray(data) ? data : [];
       } catch (error) {
-        console.error('Failed to fetch goals:', error);
+        console.error('Error fetching goals:', error);
         return [];
       }
     },
@@ -649,7 +776,7 @@ export const createApiClient = (token: string) => {
         const response = await fetch(
           `${API_URL}/parent/children/${childId}/goals`,
           {
-            headers,
+            headers: getAuthHeaders(token),
           }
         );
         const result = await handleResponse<any[]>(response);
@@ -660,44 +787,257 @@ export const createApiClient = (token: string) => {
       }
     },
 
-    approveGoal: async (goalId: string): Promise<any> => {
+    approveGoal: async (goalId: string) => {
+      if (!goalId) {
+        console.error('API: Cannot approve goal - missing goalId');
+        throw new Error('Goal ID is required');
+      }
+
+      console.log(`API: Approving goal with ID: ${goalId}`);
+
       try {
-        const response = await fetch(`${API_URL}/goals/${goalId}/approve`, {
-          method: 'POST',
-          headers,
-        });
-        return handleResponse<any>(response);
+        // First, check if the goal is already approved
+        try {
+          const goalResponse = await fetch(`${API_URL}/goals/${goalId}`, {
+            method: 'GET',
+            headers: getAuthHeaders(token),
+          });
+
+          if (goalResponse.ok) {
+            const goalData = await goalResponse.json();
+            console.log('API: Goal data before approval attempt:', goalData);
+
+            if (goalData.approved) {
+              console.log('API: Goal is already approved, returning success');
+              return {
+                message: 'Goal is already approved',
+                goal: {
+                  id: goalId,
+                  approved: true,
+                  status: 'approved',
+                },
+              };
+            }
+          }
+        } catch (checkError) {
+          console.error('API: Error checking goal status:', checkError);
+          // Continue with approval attempt even if check fails
+        }
+
+        // Try multiple endpoint formats with detailed debugging
+        const endpoints = [
+          `${API_URL}/goals/${goalId}/approve`,
+          `${API_URL}/parent/goals/${goalId}/approve`,
+        ];
+
+        let lastError = null;
+        let lastResponseText = '';
+
+        // Try each endpoint
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`API: Trying to approve goal at endpoint: ${endpoint}`);
+
+            const response = await fetch(endpoint, {
+              method: 'POST',
+              headers: {
+                ...getAuthHeaders(token),
+                'Content-Type': 'application/json',
+              },
+              // Include an empty body to ensure proper POST request
+              body: JSON.stringify({}),
+            });
+
+            console.log(
+              `API: Approve goal response status: ${response.status}`
+            );
+
+            // Get response text for debugging
+            const responseText = await response.text();
+            lastResponseText = responseText;
+            console.log(`API: Response text: ${responseText}`);
+
+            // Try to parse as JSON if possible
+            let responseData;
+            try {
+              responseData = JSON.parse(responseText);
+              console.log('API: Parsed response data:', responseData);
+            } catch (parseError) {
+              console.log('API: Response is not valid JSON');
+            }
+
+            if (response.ok) {
+              console.log('API: Goal approval successful');
+              return (
+                responseData || {
+                  message: 'Goal approved successfully',
+                  goal: {
+                    id: goalId,
+                    approved: true,
+                    status: 'approved',
+                  },
+                }
+              );
+            }
+
+            // If we get here, this endpoint failed but we'll try the next one
+            console.error(
+              `API: Endpoint ${endpoint} failed with status ${response.status}`
+            );
+            lastError = new Error(`Failed to approve goal: ${response.status}`);
+          } catch (endpointError) {
+            console.error(
+              `API: Error with endpoint ${endpoint}:`,
+              endpointError
+            );
+            lastError = endpointError;
+          }
+        }
+
+        // If we get here, all endpoints failed
+        console.error(
+          'API: All endpoints failed. Last response:',
+          lastResponseText
+        );
+        throw (
+          lastError || new Error('Failed to approve goal: All endpoints failed')
+        );
       } catch (error) {
-        console.error(`Failed to approve goal ${goalId}:`, error);
-        return { success: false };
+        console.error('API: Error approving goal:', error);
+        throw error;
+      }
+    },
+
+    deleteGoal: async (goalId: string) => {
+      try {
+        const response = await fetch(`${API_URL}/goals/${goalId}`, {
+          method: 'DELETE',
+          headers: getAuthHeaders(token),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to delete goal: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Goal deletion response:', data);
+        return data;
+      } catch (error) {
+        console.error('Error deleting goal:', error);
+        throw error;
       }
     },
 
     // Child management endpoints
-    getChildren: async (): Promise<ChildResponse[]> => {
+    getChildren: async () => {
+      console.log('API: Fetching children');
       try {
-        const response = await fetch(`${API_URL}/parent/children`, {
-          headers,
-        });
-        const result = await handleResponse<{ children: ChildResponse[] }>(
-          response
+        // Try multiple endpoints to ensure we get the data
+        const endpoints = [`${API_URL}/parent/children`, `${API_URL}/children`];
+
+        let lastError = null;
+
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`API: Trying to fetch children from ${endpoint}`);
+            const response = await fetch(endpoint, {
+              headers: getAuthHeaders(token),
+            });
+
+            console.log(
+              `API: Children response status from ${endpoint}:`,
+              response.status
+            );
+
+            if (!response.ok) {
+              console.log(
+                `API: Endpoint ${endpoint} returned ${response.status}`
+              );
+              continue; // Try next endpoint
+            }
+
+            const data = await response.json();
+            console.log(`API: Children data from ${endpoint}:`, data);
+
+            // Handle different response formats
+            let children = [];
+            if (Array.isArray(data)) {
+              children = data;
+            } else if (data.children && Array.isArray(data.children)) {
+              children = data.children;
+            } else if (data.data && Array.isArray(data.data)) {
+              children = data.data;
+            }
+
+            // Validate children data
+            const validChildren = children.filter(
+              (child) =>
+                child && typeof child === 'object' && child.id && child.name
+            );
+
+            console.log(`API: Valid children from ${endpoint}:`, validChildren);
+            return validChildren;
+          } catch (endpointError) {
+            console.error(
+              `API: Error fetching children from ${endpoint}:`,
+              endpointError
+            );
+            lastError = endpointError;
+          }
+        }
+
+        // If we get here, all endpoints failed
+        throw (
+          lastError || new Error('Failed to fetch children from all endpoints')
         );
-        return Array.isArray(result.children) ? result.children : [];
       } catch (error) {
-        console.error('Failed to fetch children:', error);
-        return [];
+        console.error('API: Error fetching children:', error);
+        throw error;
       }
     },
 
-    getChild: async (childId: string): Promise<ChildResponse> => {
+    getChildDetails: async (childId: string) => {
       try {
+        console.log(`Fetching details for child: ${childId}`);
         const response = await fetch(`${API_URL}/parent/children/${childId}`, {
-          headers,
+          method: 'GET',
+          headers: getAuthHeaders(token),
         });
-        return handleResponse<ChildResponse>(response);
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch child details: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Child details received:', data);
+        return data;
       } catch (error) {
-        console.error(`Failed to fetch child ${childId}:`, error);
-        return {} as ChildResponse;
+        console.error(`Error fetching details for child ${childId}:`, error);
+        return null;
+      }
+    },
+
+    getChildBalance: async (childId: string) => {
+      try {
+        console.log(`Fetching balance for child: ${childId}`);
+        const response = await fetch(
+          `${API_URL}/parent/children/${childId}/balance`,
+          {
+            method: 'GET',
+            headers: getAuthHeaders(token),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch child balance: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Child balance received:', data);
+        return { balance: data.balance || 0 };
+      } catch (error) {
+        console.error(`Error fetching balance for child ${childId}:`, error);
+        return { balance: 0 };
       }
     },
 
@@ -708,7 +1048,7 @@ export const createApiClient = (token: string) => {
     }): Promise<{ childId: string }> => {
       const response = await fetch(`${API_URL}/auth/create-child`, {
         method: 'POST',
-        headers,
+        headers: getAuthHeaders(token),
         body: JSON.stringify(data),
       });
       return handleResponse<{ childId: string }>(response);
@@ -719,7 +1059,7 @@ export const createApiClient = (token: string) => {
         `${API_URL}/parent/children/${childId}/reset-pin`,
         {
           method: 'POST',
-          headers,
+          headers: getAuthHeaders(token),
           body: JSON.stringify({ newPin }),
         }
       );
@@ -729,7 +1069,7 @@ export const createApiClient = (token: string) => {
     removeChild: async (childId: string): Promise<any> => {
       const response = await fetch(`${API_URL}/parent/children/${childId}`, {
         method: 'DELETE',
-        headers,
+        headers: getAuthHeaders(token),
       });
       return handleResponse<any>(response);
     },
@@ -738,7 +1078,7 @@ export const createApiClient = (token: string) => {
     getLearningModules: async (): Promise<any[]> => {
       try {
         const response = await fetch(`${API_URL}/education/modules`, {
-          headers,
+          headers: getAuthHeaders(token),
         });
         const result = await handleResponse<any[]>(response);
         return Array.isArray(result) ? result : [];
@@ -750,12 +1090,35 @@ export const createApiClient = (token: string) => {
 
     getChildLearningProgress: async (childId: string): Promise<any> => {
       try {
+        // Try the parent endpoint format first
         const response = await fetch(
-          `${API_URL}/education/progress/${childId}`,
+          `${API_URL}/parent/children/${childId}/education/progress`,
           {
-            headers,
+            headers: getAuthHeaders(token),
           }
         );
+
+        // If that fails, try the direct education endpoint with childId as query param
+        if (!response.ok) {
+          console.log(
+            'Parent endpoint failed, trying education endpoint with query param'
+          );
+          const fallbackResponse = await fetch(
+            `${API_URL}/education/modules?childId=${childId}`,
+            {
+              headers: getAuthHeaders(token),
+            }
+          );
+
+          if (fallbackResponse.ok) {
+            const result = await fallbackResponse.json();
+            console.log('Child learning progress from fallback:', result);
+            return Array.isArray(result) ? result : [];
+          }
+
+          return [];
+        }
+
         const result = await handleResponse<any[]>(response);
         return Array.isArray(result) ? result : [];
       } catch (error) {
@@ -773,7 +1136,7 @@ export const createApiClient = (token: string) => {
           `${API_URL}/education/lessons/${lessonId}/complete`,
           {
             method: 'POST',
-            headers,
+            headers: getAuthHeaders(token),
           }
         );
         return handleResponse<any>(response);
@@ -787,7 +1150,7 @@ export const createApiClient = (token: string) => {
     getAchievements: async (): Promise<any[]> => {
       try {
         const response = await fetch(`${API_URL}/achievements`, {
-          headers,
+          headers: getAuthHeaders(token),
         });
         const result = await handleResponse<any[]>(response);
         return Array.isArray(result) ? result : [];
@@ -799,9 +1162,35 @@ export const createApiClient = (token: string) => {
 
     getChildAchievements: async (childId: string): Promise<any[]> => {
       try {
-        const response = await fetch(`${API_URL}/achievements/${childId}`, {
-          headers,
-        });
+        // Try the parent endpoint format first
+        const response = await fetch(
+          `${API_URL}/parent/children/${childId}/achievements`,
+          {
+            headers: getAuthHeaders(token),
+          }
+        );
+
+        // If that fails, try the direct achievements endpoint with childId as query param
+        if (!response.ok) {
+          console.log(
+            'Parent endpoint failed, trying achievements endpoint with query param'
+          );
+          const fallbackResponse = await fetch(
+            `${API_URL}/achievements?childId=${childId}`,
+            {
+              headers: getAuthHeaders(token),
+            }
+          );
+
+          if (fallbackResponse.ok) {
+            const result = await fallbackResponse.json();
+            console.log('Child achievements from fallback:', result);
+            return Array.isArray(result) ? result : [];
+          }
+
+          return [];
+        }
+
         const result = await handleResponse<any[]>(response);
         return Array.isArray(result) ? result : [];
       } catch (error) {
@@ -817,7 +1206,7 @@ export const createApiClient = (token: string) => {
     getSavingsHistory: async (): Promise<any[]> => {
       try {
         const response = await fetch(`${API_URL}/savings/history`, {
-          headers,
+          headers: getAuthHeaders(token),
         });
         const result = await handleResponse<any[]>(response);
         return Array.isArray(result) ? result : [];
@@ -830,7 +1219,7 @@ export const createApiClient = (token: string) => {
     getChildSavingsHistory: async (childId: string): Promise<any[]> => {
       try {
         const response = await fetch(`${API_URL}/savings/history/${childId}`, {
-          headers,
+          headers: getAuthHeaders(token),
         });
         const result = await handleResponse<any[]>(response);
         return Array.isArray(result) ? result : [];
@@ -839,6 +1228,408 @@ export const createApiClient = (token: string) => {
           `Failed to fetch savings history for child ${childId}:`,
           error
         );
+        return [];
+      }
+    },
+
+    // Savings plan endpoints
+    createSavingsPlan: async (data: {
+      name: string;
+      frequency: 'daily' | 'weekly' | 'monthly';
+      amount: number;
+      goalId?: string;
+      childId?: string;
+    }): Promise<any> => {
+      try {
+        const response = await fetch(`${API_URL}/savings`, {
+          method: 'POST',
+          headers: getAuthHeaders(token),
+          body: JSON.stringify(data),
+        });
+        return await handleResponse(response);
+      } catch (error) {
+        console.error('Failed to create savings plan:', error);
+        throw error;
+      }
+    },
+
+    getSavingsPlans: async (childId?: string): Promise<any[]> => {
+      try {
+        const url = childId
+          ? `${API_URL}/savings?childId=${childId}`
+          : `${API_URL}/savings`;
+
+        const response = await fetch(url, {
+          headers: getAuthHeaders(token),
+        });
+        const result = await handleResponse<any[]>(response);
+        return Array.isArray(result) ? result : [];
+      } catch (error) {
+        console.error('Failed to fetch savings plans:', error);
+        return [];
+      }
+    },
+
+    getChildSavingsSummary: async (): Promise<any> => {
+      try {
+        const response = await fetch(`${API_URL}/savings/summary`, {
+          headers: getAuthHeaders(token),
+        });
+        return await handleResponse(response);
+      } catch (error) {
+        console.error('Failed to fetch savings summary:', error);
+        throw error;
+      }
+    },
+
+    toggleSavingsPlan: async (planId: string): Promise<any> => {
+      try {
+        const response = await fetch(`${API_URL}/savings/${planId}/toggle`, {
+          method: 'PATCH',
+          headers: getAuthHeaders(token),
+        });
+        return await handleResponse(response);
+      } catch (error) {
+        console.error('Failed to toggle savings plan:', error);
+        throw error;
+      }
+    },
+
+    // Improve the API connectivity check with better timeout handling
+    checkApiConnectivity: async (): Promise<boolean> => {
+      try {
+        console.log('Checking API connectivity...');
+
+        // Increase timeout slightly to 5 seconds
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.log('API connectivity check timed out');
+          controller.abort();
+        }, 5000);
+
+        try {
+          // Try the health endpoint first
+          console.log('Trying health endpoint...');
+          const response = await fetch(`${API_URL}/health`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            console.log('Health endpoint responded successfully');
+            return true;
+          }
+
+          // If health endpoint fails, try the root endpoint
+          if (response.status === 404) {
+            console.log(
+              'Health endpoint not found (404), trying root endpoint...'
+            );
+
+            const rootController = new AbortController();
+            const rootTimeoutId = setTimeout(
+              () => rootController.abort(),
+              5000
+            );
+
+            try {
+              const rootResponse = await fetch(`${API_URL}`, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                cache: 'no-store',
+                signal: rootController.signal,
+              });
+
+              clearTimeout(rootTimeoutId);
+
+              console.log(
+                `Root endpoint responded with status: ${rootResponse.status}`
+              );
+              return rootResponse.ok;
+            } catch (rootError) {
+              clearTimeout(rootTimeoutId);
+              console.error('Root endpoint check failed:', rootError);
+              return false;
+            }
+          }
+
+          console.log(
+            `Health endpoint responded with status: ${response.status}`
+          );
+          return false;
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          console.error('Fetch operation failed:', fetchError);
+          return false;
+        }
+      } catch (error) {
+        console.error('API connectivity check failed:', error);
+        return false;
+      }
+    },
+
+    // Add a function to get the API status with more details
+    getApiStatus: async (): Promise<{
+      isConnected: boolean;
+      serverTime?: string;
+      version?: string;
+      message?: string;
+    }> => {
+      try {
+        // Try the health endpoint first
+        const response = await fetch(`${API_URL}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(5000),
+        });
+
+        // If health endpoint returns 404, try a fallback endpoint
+        if (response.status === 404) {
+          console.log('Health endpoint not found, trying root endpoint');
+          const fallbackResponse = await fetch(`${API_URL}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+            signal: AbortSignal.timeout(5000),
+          });
+
+          if (!fallbackResponse.ok) {
+            return {
+              isConnected: false,
+              message: `Server returned ${fallbackResponse.status}: ${fallbackResponse.statusText}`,
+            };
+          }
+
+          return {
+            isConnected: true,
+            message: 'API is reachable but health endpoint not available',
+          };
+        }
+
+        if (!response.ok) {
+          return {
+            isConnected: false,
+            message: `Server returned ${response.status}: ${response.statusText}`,
+          };
+        }
+
+        const data = await response.json();
+        return {
+          isConnected: true,
+          serverTime: data.serverTime || data.timestamp,
+          version: data.version,
+          message: data.message || 'API is operational',
+        };
+      } catch (error: any) {
+        return {
+          isConnected: false,
+          message: error.message || 'Could not connect to API',
+        };
+      }
+    },
+
+    // Add a simple ping endpoint that's more lightweight than the health check
+    ping: async (): Promise<boolean> => {
+      try {
+        // Use a very short timeout for a quick check
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        try {
+          // Try a HEAD request to the API root which is very lightweight
+          const response = await fetch(`${API_URL}`, {
+            method: 'HEAD',
+            cache: 'no-store',
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          return response.ok;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          return false;
+        }
+      } catch (error) {
+        return false;
+      }
+    },
+
+    // Add a function to get the API status with more details
+    getApiStatus: async (): Promise<{
+      isConnected: boolean;
+      serverTime?: string;
+      version?: string;
+      message?: string;
+    }> => {
+      try {
+        // Try the health endpoint first
+        const response = await fetch(`${API_URL}/health`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(5000),
+        });
+
+        // If health endpoint returns 404, try a fallback endpoint
+        if (response.status === 404) {
+          console.log('Health endpoint not found, trying root endpoint');
+          const fallbackResponse = await fetch(`${API_URL}`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            cache: 'no-store',
+            signal: AbortSignal.timeout(5000),
+          });
+
+          if (!fallbackResponse.ok) {
+            return {
+              isConnected: false,
+              message: `Server returned ${fallbackResponse.status}: ${fallbackResponse.statusText}`,
+            };
+          }
+
+          return {
+            isConnected: true,
+            message: 'API is reachable but health endpoint not available',
+          };
+        }
+
+        if (!response.ok) {
+          return {
+            isConnected: false,
+            message: `Server returned ${response.status}: ${response.statusText}`,
+          };
+        }
+
+        const data = await response.json();
+        return {
+          isConnected: true,
+          serverTime: data.serverTime || data.timestamp,
+          version: data.version,
+          message: data.message || 'API is operational',
+        };
+      } catch (error: any) {
+        return {
+          isConnected: false,
+          message: error.message || 'Could not connect to API',
+        };
+      }
+    },
+
+    // Add a simple ping endpoint that's more lightweight than the health check
+    ping: async (): Promise<boolean> => {
+      try {
+        // Use a very short timeout for a quick check
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+        try {
+          // Try a HEAD request to the API root which is very lightweight
+          const response = await fetch(`${API_URL}`, {
+            method: 'HEAD',
+            cache: 'no-store',
+            signal: controller.signal,
+          });
+
+          clearTimeout(timeoutId);
+          return response.ok;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          return false;
+        }
+      } catch (error) {
+        return false;
+      }
+    },
+
+    getPendingGoals: async () => {
+      console.log('API: Fetching pending goals');
+      try {
+        // Try multiple endpoints to ensure we get the data
+        const endpoints = [
+          `${API_URL}/goals?approved=false`,
+          `${API_URL}/parent/goals?approved=false`,
+          `${API_URL}/goals/pending`,
+          `${API_URL}/parent/goals/pending`,
+          `${API_URL}/parent/goals?status=pending`,
+          `${API_URL}/goals?status=pending`,
+        ];
+
+        let lastError = null;
+
+        for (const endpoint of endpoints) {
+          try {
+            console.log(`API: Trying to fetch pending goals from ${endpoint}`);
+            const response = await fetch(endpoint, {
+              headers: getAuthHeaders(token),
+            });
+
+            console.log(
+              `API: Pending goals response status from ${endpoint}:`,
+              response.status
+            );
+
+            if (!response.ok) {
+              console.log(
+                `API: Endpoint ${endpoint} returned ${response.status}`
+              );
+              continue; // Try next endpoint
+            }
+
+            const data = await response.json();
+            console.log(`API: Pending goals data from ${endpoint}:`, data);
+
+            // Handle different response formats
+            let goals = [];
+            if (Array.isArray(data)) {
+              goals = data;
+            } else if (data.goals && Array.isArray(data.goals)) {
+              goals = data.goals;
+            } else if (data.data && Array.isArray(data.data)) {
+              goals = data.data;
+            }
+
+            // Filter for pending/unapproved goals if needed
+            const pendingGoals = goals.filter(
+              (goal) =>
+                goal && typeof goal === 'object' && goal.id && !goal.approved
+            );
+
+            // Process the goals to ensure they have all required properties
+            const processedGoals = pendingGoals.map((goal) => ({
+              id: goal.id,
+              name: goal.name || 'Unnamed Goal',
+              target: goal.targetAmount || goal.target || 0,
+              current: goal.currentAmount || goal.current || 0,
+              approved: false,
+              childId: goal.childId,
+              jarId: goal.jarId,
+              childName: goal.childName || 'Unknown Child',
+            }));
+
+            console.log(
+              `API: Valid pending goals from ${endpoint}:`,
+              processedGoals
+            );
+            return processedGoals;
+          } catch (endpointError) {
+            console.error(
+              `API: Error fetching pending goals from ${endpoint}:`,
+              endpointError
+            );
+            lastError = endpointError;
+          }
+        }
+
+        // If we get here, all endpoints failed
+        console.error('API: All endpoints failed for pending goals');
+        throw lastError || new Error('Failed to fetch pending goals');
+      } catch (error) {
+        console.error('API: Error in getPendingGoals:', error);
         return [];
       }
     },

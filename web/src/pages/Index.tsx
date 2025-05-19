@@ -10,6 +10,7 @@ import ChildManagement from '@/components/ChildManagement';
 import MainNav from '@/components/MainNav';
 import { Toaster } from '@/components/ui/toaster';
 import { UserAuthProvider, useAuth } from '@/contexts/UserAuthContext';
+import { useNavigate } from 'react-router-dom';
 
 type Section =
   | 'login'
@@ -31,6 +32,7 @@ const MainApp = () => {
   const [selectedChildId, setSelectedChildId] = useState<string | null>(null);
 
   const { user, isAuthenticated, logout, api, isParent, isChild } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     // If user is authenticated, show dashboard
@@ -53,46 +55,53 @@ const MainApp = () => {
     try {
       // Default balance to 0
       let balanceValue = 0;
-      
+
       if (api) {
         try {
           if (isParent && selectedChildId) {
-            // Try to get child balance using a more resilient approach
             try {
               // First try the direct balance endpoint
-              const result = await api.getChildBalance(selectedChildId).catch(() => ({ balance: 0 }));
+              const result = await api
+                .getChildBalance(selectedChildId)
+                .catch(() => ({ balance: 0 }));
               balanceValue = result.balance || 0;
-              console.log("Child balance fetched:", balanceValue);
+              console.log('Child balance fetched:', balanceValue);
             } catch (error) {
-              console.warn("Error fetching child balance, trying alternative method");
-              
+              console.warn(
+                'Error fetching child balance, trying alternative method'
+              );
+
               // If that fails, try to get the child's data
               try {
-                const childData = await api.getChild(selectedChildId).catch(() => ({ balance: 0 }));
+                const childData = await api
+                  .getChild(selectedChildId)
+                  .catch(() => ({ balance: 0 }));
                 balanceValue = childData.balance || 0;
-                console.log("Child balance from child data:", balanceValue);
+                console.log('Child balance from child data:', balanceValue);
               } catch (childError) {
-                console.error("Error fetching child data:", childError);
+                console.error('Error fetching child data:', childError);
                 // Keep default balance of 0
               }
             }
           } else {
             // For parent's own balance or child's own balance
             try {
-              const result = await api.getBalance().catch(() => ({ balance: 0 }));
+              const result = await api
+                .getBalance()
+                .catch(() => ({ balance: 0 }));
               balanceValue = result.balance || 0;
-              console.log("User balance fetched:", balanceValue);
+              console.log('User balance fetched:', balanceValue);
             } catch (error) {
-              console.error("Error fetching balance:", error);
+              console.error('Error fetching balance:', error);
               // Keep default balance of 0
             }
           }
         } catch (error) {
-          console.error("General error in balance fetching:", error);
+          console.error('General error in balance fetching:', error);
           // Keep default balance of 0
         }
       }
-      
+
       // Set the balance value (either from API or default 0)
       setBalance(balanceValue);
     } catch (error) {
@@ -103,12 +112,16 @@ const MainApp = () => {
       setIsLoadingBalance(false);
     }
   };
-  
+
   const handleViewChildDashboard = (childId: string) => {
     setSelectedChildId(childId);
     setCurrentSection('dashboard'); // Keep using the same dashboard component
     // Update balance to show the selected child's balance
     updateBalance();
+  };
+
+  const handleManageChildren = () => {
+    navigate('/children');
   };
 
   const renderSection = () => {
@@ -142,14 +155,19 @@ const MainApp = () => {
                   }
                 : undefined
             }
-            onViewChildDashboard={isParent ? handleViewChildDashboard : undefined}
+            onViewChildDashboard={
+              isParent ? handleViewChildDashboard : undefined
+            }
             onLogout={handleLogout}
             isLoadingBalance={isLoadingBalance}
           />
         );
       case 'lightning':
         return (
-          <PaymentHandler onBack={() => setCurrentSection('dashboard')} type="lightning" />
+          <PaymentHandler
+            onBack={() => setCurrentSection('dashboard')}
+            type='lightning'
+          />
         );
       case 'withdraw-deposit':
         return (
@@ -163,33 +181,17 @@ const MainApp = () => {
         return <GoalSetting onBack={() => setCurrentSection('dashboard')} />;
       case 'achievements':
         return (
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Achievements</h2>
-              <button 
-                onClick={() => setCurrentSection('dashboard')}
-                className="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-            <p className="text-center py-12">Achievements will be displayed here.</p>
-          </div>
+          <EnhancedAchievements
+            onBack={() => setCurrentSection('dashboard')}
+            childId={location.state?.childId}
+          />
         );
       case 'learning':
         return (
-          <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">Learning Hub</h2>
-              <button 
-                onClick={() => setCurrentSection('dashboard')}
-                className="px-4 py-2 bg-gray-100 rounded-md hover:bg-gray-200"
-              >
-                Back to Dashboard
-              </button>
-            </div>
-            <p className="text-center py-12">Learning content will be displayed here.</p>
-          </div>
+          <EnhancedLearningHub
+            onBack={() => setCurrentSection('dashboard')}
+            childId={location.state?.childId}
+          />
         );
       case 'manage-children':
         return (
@@ -197,6 +199,45 @@ const MainApp = () => {
         );
       default:
         return <HomePage />;
+    }
+  };
+
+  // Add handleApproveGoal function
+  const handleApproveGoal = async (goalId: string) => {
+    if (!api) {
+      console.error('API not available');
+      return;
+    }
+
+    try {
+      console.log('Approving goal:', goalId);
+      await api.approveGoal(goalId);
+
+      // Update the goals list after approval
+      setChildGoals((prevGoals) =>
+        prevGoals.map((goal) =>
+          goal.id === goalId
+            ? {
+                ...goal,
+                approved: true,
+                status: 'approved',
+              }
+            : goal
+        )
+      );
+
+      // Refresh goals after approval
+      if (selectedChildId && api) {
+        try {
+          const goals = await api.getGoals(selectedChildId);
+          console.log('Refreshed goals after approval:', goals);
+          setChildGoals(Array.isArray(goals) ? goals : []);
+        } catch (error) {
+          console.error('Error refreshing goals after approval:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to approve goal:', error);
     }
   };
 
@@ -216,16 +257,17 @@ const MainApp = () => {
           {user && (
             <div className='mt-2'>
               <span className='bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100 text-xs font-medium px-2.5 py-0.5 rounded-full'>
-                {isParent ? (
-                  selectedChildId ? 
-                  'Child View' : 'Parent Account'
-                ) : 'Child Account'}
+                {isParent
+                  ? selectedChildId
+                    ? 'Child View'
+                    : 'Parent Account'
+                  : 'Child Account'}
               </span>
               <span className='text-xs text-gray-500 dark:text-gray-400 ml-2'>
                 {user.name}
               </span>
               {isParent && selectedChildId && (
-                <button 
+                <button
                   onClick={() => {
                     setSelectedChildId(null);
                     setCurrentSection('dashboard');
@@ -241,7 +283,7 @@ const MainApp = () => {
         </header>
 
         {renderSection()}
-        
+
         {isAuthenticated && <MainNav />}
       </div>
     </div>
@@ -258,3 +300,4 @@ const Index = () => {
 };
 
 export default Index;
+

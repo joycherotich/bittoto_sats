@@ -1,118 +1,28 @@
-const admin = require('firebase-admin');
-const db = admin.firestore();
+const firebase = require('firebase-admin');
+const { trackEvent } = require('../utils/analytics');
 
-// Achievement definitions
-const ACHIEVEMENTS = {
-  first_deposit: {
-    title: 'First Deposit',
-    description: 'Made your first deposit',
-    points: 10,
-    icon: '💰',
-  },
-  goal_created: {
-    title: 'Goal Setter',
-    description: 'Created your first savings goal',
-    points: 5,
-    icon: '🎯',
-  },
-  goal_completed: {
-    title: 'Goal Achieved',
-    description: 'Reached a savings goal',
-    points: 20,
-    icon: '🏆',
-  },
-  streak_week: {
-    title: 'Weekly Saver',
-    description: 'Saved money for 7 days in a row',
-    points: 15,
-    icon: '📅',
-  },
-  big_saver: {
-    title: 'Big Saver',
-    description: 'Saved over 1000 sats',
-    points: 25,
-    icon: '🌟',
-  },
-};
-
-const createAchievement = async (childId, type, data = {}) => {
-  try {
-    const existingSnapshot = await db
-      .collection('achievements')
-      .where('childId', '==', childId)
-      .where('type', '==', type)
-      .get();
-
-    if (!existingSnapshot.empty && !ACHIEVEMENTS[type]?.repeatable) {
-      return null;
-    }
-
-    const achievementInfo = ACHIEVEMENTS[type] || {
-      title: 'Achievement',
-      description: 'You earned an achievement',
-      points: 5,
-      icon: '🎉',
-    };
-
-    const achievementRef = db.collection('achievements').doc();
-    await achievementRef.set({
-      childId,
-      type,
-      title: achievementInfo.title,
-      description: achievementInfo.description,
-      points: achievementInfo.points,
-      icon: achievementInfo.icon,
-      data,
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    await db
-      .collection('children')
-      .doc(childId)
-      .update({
-        achievementPoints: admin.firestore.FieldValue.increment(
-          achievementInfo.points
-        ),
-      });
-
-    return achievementRef.id;
-  } catch (error) {
-    console.error('Create achievement error:', error);
-    return null;
-  }
-};
-
-// Get achievements for a child
+/**
+ * Get all achievements for a child
+ */
 const getAchievements = async (req, res) => {
   try {
-    const userId = req.user.id;
-    const userRole = req.user.role;
+    const { childId } = req.params;
+    const userId = req.user.userId;
 
-    // Determine which child's achievements to fetch
-    let childId;
-    if (userRole === 'child') {
-      childId = userId;
-    } else if (userRole === 'parent' && req.query.childId) {
-      childId = req.query.childId;
+    // Verify access rights
+    const isParent = req.user.role === 'parent';
+    const isChild = req.user.role === 'child' && userId === childId;
 
-      // Verify this child belongs to the parent
-      const childDoc = await db.collection('children').doc(childId).get();
-      if (!childDoc.exists || childDoc.data().parentId !== userId) {
-        return res.status(403).json({
-          error:
-            'You do not have permission to view achievements for this child',
-        });
-      }
-    } else {
+    if (!isParent && !isChild) {
       return res
-        .status(400)
-        .json({ error: 'Child ID is required for parent users' });
+        .status(403)
+        .json({ error: 'Unauthorized access to achievements' });
     }
 
-    const achievementsSnapshot = await db
+    const achievementsSnapshot = await firebase
+      .firestore()
       .collection('achievements')
-      .where('childId', '==', childId)
-      .orderBy('createdAt', 'desc')
+      .where('childId', '==', childId || userId)
       .get();
 
     const achievements = [];
@@ -120,21 +30,79 @@ const getAchievements = async (req, res) => {
       achievements.push({
         id: doc.id,
         ...doc.data(),
-        createdAt: doc.data().createdAt
-          ? doc.data().createdAt.toDate().toISOString()
-          : null,
       });
     });
 
-    res.json(achievements);
+    res.json({ achievements });
   } catch (error) {
-    console.error('Get achievements error:', error);
-    res.status(500).json({ error: 'Failed to retrieve achievements' });
+    res.status(500).json({ error: error.message });
+  }
+};
+
+/**
+ * Award a new achievement to a child
+ */
+const awardAchievement = async (req, res) => {
+  try {
+    const { childId } = req.params;
+    const { type, title, description, rewardAmount } = req.body;
+
+    // Verify the user is a parent
+    if (req.user.role !== 'parent') {
+      return res
+        .status(403)
+        .json({ error: 'Only parents can award achievements' });
+    }
+
+    // Create the achievement
+    const achievementRef = firebase
+      .firestore()
+      .collection('achievements')
+      .doc();
+    await achievementRef.set({
+      childId,
+      type,
+      title,
+      description,
+      rewardAmount: rewardAmount || 0,
+      awarded: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+
+    // If there's a reward, update the child's balance
+    if (rewardAmount && rewardAmount > 0) {
+      await firebase
+        .firestore()
+        .collection('wallets')
+        .where('childId', '==', childId)
+        .get()
+        .then((snapshot) => {
+          if (!snapshot.empty) {
+            const walletDoc = snapshot.docs[0];
+            return walletDoc.ref.update({
+              balance: firebase.firestore.FieldValue.increment(rewardAmount),
+            });
+          }
+        });
+    }
+
+    // Track the achievement for analytics
+    trackEvent(childId, 'achievement_awarded', {
+      achievementId: achievementRef.id,
+      type,
+      title,
+      rewardAmount,
+    });
+
+    res.status(201).json({
+      message: 'Achievement awarded successfully',
+      achievementId: achievementRef.id,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
 
 module.exports = {
-  createAchievement,
   getAchievements,
-  ACHIEVEMENTS,
+  awardAchievement,
 };

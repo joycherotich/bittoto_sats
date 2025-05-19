@@ -21,111 +21,14 @@ interface Achievement {
 }
 
 interface EnhancedAchievementsProps {
-  onBack: () => void;
+  childId?: string;
+  onBack?: () => void;
 }
 
-const EnhancedAchievements: React.FC<EnhancedAchievementsProps> = ({ onBack }) => {
-  const [selectedAchievement, setSelectedAchievement] = useState<Achievement | null>(null);
-  const { toast } = useToast();
-  
-  const achievements: Achievement[] = [
-    {
-      id: '1',
-      name: 'First Saver',
-      description: 'Made your first savings deposit',
-      icon: <Star className="h-8 w-8 text-yellow-400" />,
-      earned: true,
-      earnedDate: '2023-04-15',
-      category: 'savings'
-    },
-    {
-      id: '2',
-      name: 'Savings Master',
-      description: 'Saved over 1,000 sats',
-      icon: <Trophy className="h-8 w-8 text-amber-500" />,
-      earned: false,
-      progress: 650,
-      target: 1000,
-      category: 'savings'
-    },
-    {
-      id: '3',
-      name: 'Goal Getter',
-      description: 'Reached your first savings goal',
-      icon: <Star className="h-8 w-8 text-blue-400" />,
-      earned: true,
-      earnedDate: '2023-05-02',
-      category: 'savings'
-    },
-    {
-      id: '4',
-      name: 'Learning Beginner',
-      description: 'Completed your first lesson',
-      icon: <Zap className="h-8 w-8 text-purple-400" />,
-      earned: true,
-      earnedDate: '2023-04-10',
-      category: 'learning'
-    },
-    {
-      id: '5',
-      name: 'Quiz Whiz',
-      description: 'Got 100% on a quiz',
-      icon: <Award className="h-8 w-8 text-green-400" />,
-      earned: false,
-      progress: 70,
-      target: 100,
-      category: 'learning'
-    },
-    {
-      id: '6',
-      name: '3-Day Streak',
-      description: 'Used the app for 3 days in a row',
-      icon: <Trophy className="h-8 w-8 text-red-400" />,
-      earned: true,
-      earnedDate: '2023-05-05',
-      category: 'streaks'
-    },
-    {
-      id: '7',
-      name: 'Weekly Saver',
-      description: 'Saved money every week for a month',
-      icon: <Trophy className="h-8 w-8 text-emerald-400" />,
-      earned: false,
-      progress: 3,
-      target: 4,
-      category: 'streaks'
-    },
-    {
-      id: '8',
-      name: 'Bitcoin Explorer',
-      description: 'Completed all Bitcoin learning modules',
-      icon: <Award className="h-8 w-8 text-orange-400" />,
-      earned: false,
-      progress: 2,
-      target: 5,
-      category: 'learning'
-    }
-  ];
-  
-  const earnedAchievements = achievements.filter(a => a.earned).length;
-  const totalAchievements = achievements.length;
-  
-  const handlePrintCertificate = (achievement: Achievement) => {
-    toast({
-      title: "Certificate prepared!",
-      description: `Your ${achievement.name} certificate is ready to print.`,
-    });
-    
-    // In a real app, this would generate and download a PDF certificate
-  };
-  
-  const handleShareAchievement = (achievement: Achievement) => {
-    toast({
-      title: "Achievement shared!",
-      description: `Your ${achievement.name} achievement has been shared with your parent.`,
-    });
-  };
-  
+const EnhancedAchievements: React.FC<EnhancedAchievementsProps> = ({ 
+  childId, 
+  onBack 
+}) => {
   return (
     <div className="space-y-4 p-4 animate-fade-in">
       <Button 

@@ -6,12 +6,14 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useBalance } from '@/contexts/BalanceContext';
 
 interface MpesaPaymentProps {
-  onBack: () => void;
+  childId: string;
+  onClose: () => void;
 }
 
-const MpesaPayment: React.FC<MpesaPaymentProps> = ({ onBack }) => {
+const MpesaPayment: React.FC<MpesaPaymentProps> = ({ childId, onClose }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,6 +24,7 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({ onBack }) => {
   >(null);
   const { toast } = useToast();
   const { api, token } = useAuth();
+  const { refreshBalance, emitBalanceRefresh } = useBalance();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -107,21 +110,30 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({ onBack }) => {
     }
   };
 
-  const checkPaymentStatus = async () => {
-    if (!api || !token || !transactionId) return;
-
+  const checkStatus = async () => {
+    if (!transactionId) return;
     setCheckingStatus(true);
 
     try {
       const response = await api.checkMpesaStatus(transactionId);
-      
+
       if (response.completed || response.status === 'completed') {
         setPaymentStatus('completed');
+
+        // Refresh balance after successful payment
+        try {
+          await refreshBalance();
+          emitBalanceRefresh();
+          console.log('Balance refreshed after M-Pesa payment');
+        } catch (balanceError) {
+          console.error('Error refreshing balance:', balanceError);
+        }
+
         toast({
           title: 'Payment Successful',
           description: `${amount} KES have been added to your balance`,
         });
-        
+
         // Reset form
         setPhoneNumber('');
         setAmount('');
@@ -157,7 +169,7 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({ onBack }) => {
   return (
     <div className='space-y-4 animate-fade-in'>
       <div className='flex items-center'>
-        <Button variant='ghost' size='icon' onClick={onBack}>
+        <Button variant='ghost' size='icon' onClick={onClose}>
           <ArrowLeft className='h-4 w-4' />
         </Button>
         <h2 className='text-xl font-semibold ml-2'>M-Pesa Deposit</h2>
@@ -201,7 +213,7 @@ const MpesaPayment: React.FC<MpesaPaymentProps> = ({ onBack }) => {
               </p>
 
               <Button
-                onClick={checkPaymentStatus}
+                onClick={checkStatus}
                 disabled={checkingStatus}
                 className='w-full'
               >

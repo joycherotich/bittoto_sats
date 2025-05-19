@@ -232,7 +232,108 @@ const getSavingsPlans = async (req, res) => {
   }
 };
 
+// Get savings summary for a child
+const getChildSavingsSummary = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+
+    if (userRole !== 'child') {
+      return res
+        .status(403)
+        .json({ error: 'This endpoint is for child users only' });
+    }
+
+    // Get all active savings plans for this child
+    const plansSnapshot = await db
+      .collection('savings_plans')
+      .where('childId', '==', userId)
+      .where('active', '==', true)
+      .get();
+
+    // Calculate total saved amount
+    let totalSaved = 0;
+    const plans = [];
+
+    plansSnapshot.forEach((doc) => {
+      const planData = doc.data();
+      plans.push({
+        id: doc.id,
+        name: planData.name,
+        frequency: planData.frequency,
+        amount: planData.amount,
+        nextExecution: planData.nextExecution
+          ? planData.nextExecution.toDate().toISOString()
+          : null,
+      });
+
+      // Add to total if there's a lastExecuted date
+      if (planData.lastExecuted) {
+        totalSaved += planData.amount;
+      }
+    });
+
+    res.json({
+      totalSaved,
+      activePlans: plans.length,
+      plans,
+    });
+  } catch (error) {
+    console.error('Get child savings summary error:', error);
+    res.status(500).json({ error: 'Failed to retrieve savings summary' });
+  }
+};
+
+// Toggle a savings plan (enable/disable)
+const toggleSavingsPlan = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const userRole = req.user.role;
+    const { planId } = req.params;
+
+    // Get the savings plan
+    const planDoc = await db.collection('savings_plans').doc(planId).get();
+
+    if (!planDoc.exists) {
+      return res.status(404).json({ error: 'Savings plan not found' });
+    }
+
+    const planData = planDoc.data();
+
+    // Check permissions
+    if (userRole === 'child' && planData.childId !== userId) {
+      return res
+        .status(403)
+        .json({
+          error: 'You do not have permission to modify this savings plan',
+        });
+    }
+
+    // Toggle the active status
+    const newActiveStatus = !planData.active;
+
+    await db.collection('savings_plans').doc(planId).update({
+      active: newActiveStatus,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({
+      id: planId,
+      active: newActiveStatus,
+      message: `Savings plan ${
+        newActiveStatus ? 'activated' : 'paused'
+      } successfully`,
+    });
+  } catch (error) {
+    console.error('Toggle savings plan error:', error);
+    res.status(500).json({ error: 'Failed to update savings plan' });
+  }
+};
+
 module.exports = {
   createSavingsPlan,
   getSavingsPlans,
+  getChildSavingsSummary,
+  toggleSavingsPlan,
+  // Include any other existing functions here
 };

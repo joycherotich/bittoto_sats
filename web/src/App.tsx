@@ -13,8 +13,10 @@ import PaymentHandler from './components/PaymentHandler';
 import PaymentSelector from './components/PaymentSelector';
 import ChildLogin from './components/ChildLogin';
 import LoginForm from './components/LoginForm';
+import Savings from './pages/Savings';
 
 const ChildrenPage = lazy(() => import('./pages/ChildrenPage'));
+const AddChildPage = lazy(() => import('./pages/AddChildPage'));
 
 const queryClient = new QueryClient();
 
@@ -74,6 +76,8 @@ const App = () => (
                   path='/payment/:select/:childId?'
                   element={<PaymentSelector />}
                 />
+                <Route path='/add-child' element={<AddChildPage />} />
+                <Route path='/savings' element={<Savings />} />
                 <Route path='*' element={<NotFound />} />
               </Routes>
             </Suspense>

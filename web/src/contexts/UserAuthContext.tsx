@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useRef,
+} from 'react';
 import { createApiClient } from '@/services/api';
+import { toast } from 'sonner';
 
 type UserRole = 'parent' | 'child';
 
@@ -21,25 +28,37 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  token: string;
+  token: string | null;
   login: (token: string, user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
   api: ReturnType<typeof createApiClient> | null;
   isParent: boolean;
   isChild: boolean;
+  getChildren: () => Promise<ChildProfile[]>;
+  getSavingsHistory: () => Promise<any>;
+  loading: boolean;
+  apiConnected: boolean;
+  refreshUser: () => Promise<void>;
+  register: (data: RegisterData) => Promise<void>;
 }
 
 // Export the context so it can be imported elsewhere
 export const UserAuthContext = createContext<AuthContextType>({
   user: null,
-  token: '',
+  token: null,
   login: () => {},
   logout: () => {},
   isAuthenticated: false,
   api: null,
   isParent: false,
   isChild: false,
+  getChildren: async () => [],
+  getSavingsHistory: async () => {},
+  loading: true,
+  apiConnected: true,
+  refreshUser: async () => {},
+  register: async () => {},
 });
 
 export const useAuth = () => useContext(UserAuthContext);
@@ -48,10 +67,87 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [token, setToken] = useState<string>('');
+  const [token, setToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [apiConnected, setApiConnected] = useState<boolean>(true);
   const [api, setApi] = useState<ReturnType<typeof createApiClient> | null>(
     null
   );
+  const connectionRef = useRef(true);
+
+  // Create API instance when token changes
+  useEffect(() => {
+    if (token) {
+      const apiInstance = createApiClient(token);
+      setApi(apiInstance);
+      console.log('API instance created with token');
+    } else {
+      setApi(null);
+      console.log('API instance cleared (no token)');
+    }
+  }, [token]);
+
+  // Improve the API connectivity check in the context
+  useEffect(() => {
+    if (!api) return;
+
+    let isMounted = true;
+
+    const checkConnectivity = async () => {
+      try {
+        console.log('Checking API connectivity from context...');
+        const isConnected = await api.checkApiConnectivity();
+
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setApiConnected(isConnected);
+
+          if (!isConnected) {
+            console.warn('API connectivity check failed');
+          } else {
+            console.log('API connectivity check succeeded');
+          }
+        }
+      } catch (error) {
+        console.error('Error checking API connectivity:', error);
+
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setApiConnected(false);
+        }
+      }
+    };
+
+    // Check immediately but with a small delay to allow other initialization to complete
+    const initialCheckTimeout = setTimeout(() => {
+      checkConnectivity();
+    }, 1000);
+
+    // Then check periodically but less frequently (every 60 seconds instead of 30)
+    const intervalId = setInterval(checkConnectivity, 60000);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(initialCheckTimeout);
+      clearInterval(intervalId);
+    };
+  }, [api]);
+
+  // Improve the toast notification for API connectivity
+  useEffect(() => {
+    // Only show toast when connectivity changes from connected to disconnected
+    // to avoid showing the toast on initial load
+    if (!apiConnected && connectionRef.current) {
+      toast.error('Connection Issue', {
+        description:
+          'Having trouble connecting to the server. Some features may not work.',
+        duration: 5000,
+      });
+      connectionRef.current = false;
+    } else if (apiConnected) {
+      connectionRef.current = true;
+    }
+  }, [apiConnected]);
 
   // Check if token is valid (not expired)
   const checkToken = (token: string): boolean => {
@@ -87,7 +183,6 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({
         // Store user role for API endpoints
         localStorage.setItem('userRole', userData.role);
 
-        setApi(createApiClient(storedToken));
         console.log('Auth restored from localStorage, role:', userData.role);
       } else {
         // Token is expired, clear storage
@@ -97,6 +192,9 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({
         console.warn('Stored token was invalid or expired');
       }
     }
+
+    // Set loading to false after initial auth check
+    setLoading(false);
   }, []);
 
   const login = (newToken: string, newUser: User) => {
@@ -109,22 +207,28 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     setToken(newToken);
     setUser(newUser);
-    setApi(createApiClient(newToken));
   };
 
   const logout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('userRole');
-    setToken('');
+    setToken(null);
     setUser(null);
-    setApi(null);
     console.log('User logged out, auth state cleared');
   };
 
   // Derived properties
   const isParent = !!user && user.role === 'parent';
   const isChild = !!user && user.role === 'child';
+
+  // Helper function for auth headers
+  const getAuthHeaders = () => {
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    };
+  };
 
   return (
     <UserAuthContext.Provider
@@ -137,6 +241,43 @@ export const UserAuthProvider: React.FC<{ children: React.ReactNode }> = ({
         api,
         isParent,
         isChild,
+        getChildren: async () => {
+          try {
+            if (!api) throw new Error('API not initialized');
+            return await api.getChildren();
+          } catch (error) {
+            console.error('Error fetching children:', error);
+            return [];
+          }
+        },
+        getSavingsHistory: async () => {
+          try {
+            if (!api) throw new Error('API not initialized');
+            return await api.getSavingsHistory();
+          } catch (error) {
+            console.error('Error fetching savings history:', error);
+            return [];
+          }
+        },
+        loading,
+        apiConnected,
+        refreshUser: async () => {
+          if (token && api) {
+            try {
+              const refreshedUser = await api.refreshUser();
+              setUser(refreshedUser);
+            } catch (error) {
+              console.error('Error refreshing user:', error);
+            }
+          }
+        },
+        register: async (data: RegisterData) => {
+          if (!api) throw new Error('API not initialized');
+          const response = await api.register(data);
+          if (response.token) {
+            login(response.token, response.user);
+          }
+        },
       }}
     >
       {children}

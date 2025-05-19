@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
 import { LogIn, User, Phone, Key, UserPlus } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useNavigate } from 'react-router-dom';
 
 // Constants
 const API_URL = 'http://localhost:3000/api';
@@ -19,6 +20,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onRegister, onChildLogin }) => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const { toast } = useToast();
   const { login } = useAuth();
@@ -26,6 +28,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onRegister, onChildLogin }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    console.log('Login attempt with:', { phoneNumber });
 
     try {
       if (!phoneNumber || !pin) {
@@ -64,21 +67,24 @@ const LoginForm: React.FC<LoginFormProps> = ({ onRegister, onChildLogin }) => {
       }
 
       const result = await response.json();
+      console.log('Login successful, result:', {
+        token: result.token ? 'Token received' : 'No token',
+        user: result.user ? 'User data received' : 'No user data',
+      });
+
       // Use the auth context to log in
       login(result.token, result.user);
+      console.log('Auth context login called');
 
-      // Show welcome message with child's name if available
-      if (result.user.role === 'parent' && result.user.childProfile?.name) {
-        toast({
-          title: 'Login Successful',
-          description: `Welcome back! ${result.user.childProfile.name}'s account is ready.`,
-        });
-      } else {
-        toast({
-          title: 'Login Successful',
-          description: `Welcome back, ${result.user.name || 'Parent'}!`,
-        });
-      }
+      // Show welcome message
+      toast({
+        title: 'Login Successful',
+        description: `Welcome back, ${result.user.name || 'User'}!`,
+      });
+
+      // Navigate to the dashboard after successful login
+      console.log('Navigating to dashboard...');
+      navigate('/');
     } catch (error: any) {
       toast({
         variant: 'destructive',

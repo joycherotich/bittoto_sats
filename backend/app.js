@@ -15,7 +15,10 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const goalRoutes = require('./routes/goalRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const parentRoutes = require('./routes/parentRoutes');
+const educationRoutes = require('./routes/educationRoutes');
 const childRoutes = require('./routes/childRoutes');
+const achievementRoutes = require('./routes/achievementRoutes');
+const savingsRoutes = require('./routes/savingsRoutes');
 
 const { errorHandler } = require('./middlewares/errorMiddleware');
 
@@ -79,6 +82,21 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Add a lightweight HEAD endpoint handler
+app.head('/api', (req, res) => {
+  res.status(200).end();
+});
+
+// Add a more comprehensive health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'UP',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    version: process.env.npm_package_version || '1.0.0',
+  });
+});
+
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/wallet', walletRoutes);
@@ -86,7 +104,10 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/goals', goalRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/parent', parentRoutes);
+app.use('/api/education', educationRoutes);
 app.use('/api/children', childRoutes);
+app.use('/api/achievements', achievementRoutes);
+app.use('/api/savings', savingsRoutes);
 
 // 404 handler
 app.use((req, res, next) => {

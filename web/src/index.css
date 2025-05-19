@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -27,8 +26,18 @@
     --radius: 0.75rem;
     --lightning: 14 100% 53%;
     --mpesa: 153 49% 43%;
+
+    /* Sidebar specific colors */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 222.2 84% 4.9%;
+    --sidebar-primary: 47.9 95.8% 53.1%;
+    --sidebar-primary-foreground: 26 83.3% 14.1%;
+    --sidebar-accent: 210 40% 96.1%;
+    --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-ring: 221.2 83.2% 53.3%;
   }
- 
+
   .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
@@ -51,6 +60,16 @@
     --ring: 224.3 76.3% 48%;
     --lightning: 14 100% 53%;
     --mpesa: 153 49% 43%;
+
+    /* Sidebar specific colors for dark mode */
+    --sidebar-background: 222.2 84% 4.9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 47.9 95.8% 53.1%;
+    --sidebar-primary-foreground: 26 83.3% 14.1%;
+    --sidebar-accent: 217.2 32.6% 17.5%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217.2 32.6% 17.5%;
+    --sidebar-ring: 224.3 76.3% 48%;
   }
 }
 
@@ -59,12 +78,14 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground transition-colors duration-300;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
   }
 }
 
 @keyframes pulse-lightning {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -131,7 +152,8 @@
 }
 
 @keyframes bounce {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0);
   }
   50% {
@@ -153,12 +175,84 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #FFE29F 0%, #FFA99F 48%, #FF719A 100%);
+  background: linear-gradient(135deg, #ffe29f 0%, #ffa99f 48%, #ff719a 100%);
   border-radius: 50%;
   padding: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .achievement-badge.locked {
   background: #e5e7eb;
+}
+
+@layer components {
+  .card-hover {
+    @apply transition-all duration-200 hover:shadow-md hover:bg-accent/10 dark:hover:bg-accent/5;
+  }
+
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 transition-colors;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/80 transition-colors;
+  }
+
+  .btn-outline {
+    @apply border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors;
+  }
+
+  .btn-ghost {
+    @apply hover:bg-accent hover:text-accent-foreground transition-colors;
+  }
+
+  .btn-destructive {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors;
+  }
+
+  .btn-bitcoin {
+    @apply bg-bitcoin text-white hover:bg-bitcoin-dark transition-colors;
+  }
+
+  .btn-lightning {
+    @apply bg-lightning text-white hover:bg-lightning-dark transition-colors;
+  }
+
+  .btn-mpesa {
+    @apply bg-mpesa text-white hover:bg-mpesa-dark transition-colors;
+  }
+
+  .input-field {
+    @apply rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+
+  .animate-in {
+    @apply opacity-0;
+    animation-fill-mode: forwards;
+  }
+
+  .fade-in {
+    @apply animate-fade-in;
+  }
+
+  .slide-up {
+    @apply animate-slide-up;
+  }
+
+  .slide-down {
+    @apply animate-slide-down;
+  }
+
+  .slide-left {
+    @apply animate-slide-left;
+  }
+
+  .slide-right {
+    @apply animate-slide-right;
+  }
+
+  .scale-in {
+    @apply animate-scale-in;
+  }
 }
