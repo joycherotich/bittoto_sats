@@ -37,25 +37,19 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-black text-white font-sans overflow-x-hidden">
-{/* 
-<img
-        src={overlayBg}
-        alt="Overlay Background"
-        className="absolute inset-0 w-full h-full object-cover opacity-80 mix-blend-overlay z-0"
-      />
-  </div> */}
+
       {/* Header */}
       <header className="flex justify-between items-center px-6 py-8 md:px-12">
-        <h1 className="text-2xl font-extrabold font-serif text-yellow-400">SatsJar</h1>
+        <h1 className="text-5xl font-extrabold font-serif text-yellow-400">SatsJar</h1>
         <div className="space-x-4">
           <button
-            className="bg-white text-black px-5 py-2 rounded-lg font-serif hover:bg-gray-300 transition-all duration-200 font-medium"
+            className="bg-white text-black px-2 py-2 rounded-lg font-serif hover:bg-gray-300 transition-all duration-200 font-medium"
             onClick={() => setCurrentView(AuthView.REGISTER)}
           >
             Sign up
           </button>
           <button
-            className="bg-blue-800 hover:bg-purple-700 px-5 py-2 font-serif text-white rounded-lg font-medium transition-all duration-200"
+            className="bg-blue-800 hover:bg-purple-700 px-2 py-2 font-serif text-white rounded-lg font-medium transition-all duration-200"
             onClick={() => setCurrentView(AuthView.PARENT_LOGIN)}
           >
             Log in
@@ -106,16 +100,16 @@ const HomePage: React.FC = () => {
           {/* Balance Section */}
           <div className="grid grid-cols-3 gap-4 text-center text-sm font-semibold mb-6">
             <div className="bg-white/80 p-4 rounded-xl shadow-md">
-              <p className="text-gray-700 font-serif">My Balance</p>
-              <p className="text-xl font-bold">121.00₿</p>
+              <p className="text-gray-700 text-sm font-serif">My Balance</p>
+              <p className="text-m font-bold">121.00₿</p>
             </div>
             <div className="bg-green-100 p-4 rounded-xl shadow-md">
-              <p className="text-gray-700 font-serif">Savings</p>
-              <p className="text-xl text-green-600 font-bold">+23.00₿</p>
+              <p className="text-gray-700 text-sm font-serif">Savings</p>
+              <p className="text-m text-green-600 font-bold">+23.00₿</p>
             </div>
             <div className="bg-red-100 p-4 rounded-xl shadow-md">
-              <p className="text-gray-700 font-serif">withdrawals</p>
-              <p className="text-xl text-red-600 font-bold">-12.00₿</p>
+              <p className="text-gray-700 text-sm font-serif">withdrawals</p>
+              <p className="text-m text-red-600 font-bold">-12.00₿</p>
             </div>
           </div>
 
