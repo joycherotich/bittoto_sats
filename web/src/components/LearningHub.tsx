@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Book, Zap, CircleCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import MainNav from './MainNav';
 
 interface Lesson {
   id: string;
@@ -90,16 +91,16 @@ const LearningHub: React.FC<LearningHubProps> = ({ onBack }) => {
   };
   
   return (
-    <div className="space-y-4 p-4 animate-fade-in">
-      <Button 
-        variant="ghost" 
-        onClick={onBack} 
-        className="mb-4"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Dashboard
-      </Button>
-      
+    <div className="min-h-screen bg-[#f9fafb] md:ml-56 p-4 sm:p-6 md:p-8 transition-all">
+  
+    <MainNav />   
+    <header className="fixed top-0 left-0 right-0 z-50 bg-yellow-600 shadow-md md:ml-56">
+        <div className="max-w-full md:max-w-[calc(100%-14rem)] mx-auto flex justify-between items-center px-6 py-4">
+          <div className="text-2xl font-serif font-bold text-white">Children</div>
+       
+        </div>
+      </header>
+     
       <Card>
         <CardHeader className="bg-gradient-to-r from-blue-500 to-cyan-500 text-white">
           <CardTitle className="flex items-center">

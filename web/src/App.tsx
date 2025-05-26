@@ -15,6 +15,7 @@ import ChildLogin from './components/ChildLogin';
 import LoginForm from './components/LoginForm';
 import Savings from './pages/Savings';
 import Achievements from './components/Achievements';
+import LearningHub from './components/education/LearningHub';
 
 const ChildrenPage = lazy(() => import('./pages/ChildrenPage'));
 const AddChildPage = lazy(() => import('./pages/AddChildPage'));
@@ -78,6 +79,7 @@ const App = () => (
                   element={<PaymentSelector />}
                 />
                 <Route path='/achievements' element={<Achievements />} />
+                <Route path='/learning' element={<LearningHub />} />
 
 
                 <Route path='/add-child' element={<AddChildPage />} />

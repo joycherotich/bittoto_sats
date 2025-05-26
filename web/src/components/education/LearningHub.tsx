@@ -11,6 +11,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
 import { Book, CheckCircle, ArrowLeft, Award, Play } from 'lucide-react';
+import MainNav from '../MainNav';
 
 interface LearningModule {
   id: string;
@@ -400,8 +401,7 @@ const LearningHub: React.FC<LearningHubProps> = ({ childId, onBack }) => {
             onClick={() => setSelectedLesson(null)}
             className='pl-0'
           >
-            <ArrowLeft className='mr-2 h-4 w-4' />
-            Back to Module
+           
           </Button>
         </div>
 
@@ -446,7 +446,14 @@ const LearningHub: React.FC<LearningHubProps> = ({ childId, onBack }) => {
   };
 
   return (
-    <div className='space-y-6'>
+    <div className="min-h-screen bg-[#f9fafb] md:ml-56 p-4 sm:p-6 md:p-8 transition-all">
+    <MainNav />  
+      <header className="fixed top-0 left-0 right-0 z-50 bg-yellow-600 shadow-md md:ml-56">
+          <div className="max-w-full md:max-w-[calc(100%-14rem)] mx-auto flex justify-between items-center px-6 py-4">
+            <div className="text-2xl font-serif font-bold text-white">Learning HUb</div>
+         
+          </div>
+        </header>
       <div className='flex justify-between items-center'>
         <h2 className='text-2xl font-bold'>
           {isParent && childId ? "Child's Learning Progress" : 'Learning Hub'}

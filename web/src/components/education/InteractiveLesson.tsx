@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
 import confetti from 'canvas-confetti';
+import MainNav from '../MainNav';
 
 interface LessonStep {
   type: 'text' | 'video' | 'quiz' | 'activity';
@@ -100,6 +101,7 @@ const InteractiveLesson: React.FC<LessonProps> = ({
       case 'quiz':
         return (
           <div className="space-y-4">
+            <MainNav />
             <h3 className="text-lg font-medium">{step.question}</h3>
             <div className="space-y-2">
               {step.options?.map((option, index) => (
