@@ -90,115 +90,116 @@ const ChildLogin: React.FC<ChildLoginProps> = ({ onBack }) => {
   };
 
   return (
-    <div className='space-y-4 p-4 animate-fade-in'>
-      <Button variant='ghost' onClick={onBack} className='mb-4'>
-        <ArrowLeft className='mr-2 h-4 w-4' />
-        Back
-      </Button>
-
-      <Card className='shadow-lg border-2 border-blue-300 overflow-hidden'>
-        <CardHeader className='bg-gradient-to-r from-blue-400 to-purple-500 text-white'>
-          <div className='flex items-center justify-between'>
-            <CardTitle className='text-xl flex items-center'>
-              <div className='bg-white text-blue-500 p-1 rounded-full mr-2'>
-                <User className='h-5 w-5' />
-              </div>
-              Kid's Login Zone
-            </CardTitle>
-            <div className='flex space-x-1'>
-              {[1, 2, 3].map((star) => (
-                <div
-                  key={star}
-                  className='text-yellow-300 text-xl animate-bounce'
-                  style={{ animationDelay: `${star * 0.2}s` }}
-                >
-                  ★
+    <div className=''>
+    <div className=''>
+  
+      {/* Image Section */}
+    
+  
+      {/* Login Form Section */}
+      <div className='w-full '>
+        <Card className='border-none shadow-none rounded-none'>
+          <CardHeader className='bg-gradient-to-r from-blue-500 to-purple-500 text-white p-5'>
+            <div className='flex items-center justify-between'>
+              <CardTitle className='text-xl flex items-center font-bold'>
+                <div className='bg-white text-blue-500 p-2 rounded-full mr-2'>
+                  <User className='h-5 w-5' />
                 </div>
-              ))}
+                Kid's Login Zone
+              </CardTitle>
+              <div className='flex space-x-1'>
+                {[1, 2, 3].map((star) => (
+                  <div
+                    key={star}
+                    className='text-yellow-300 text-xl animate-bounce'
+                    style={{ animationDelay: `${star * 0.2}s` }}
+                  >
+                    ★
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className='p-6 bg-gradient-to-b from-blue-50 to-white'>
-          <div className='text-center mb-4'>
-            <h3 className='text-blue-600 font-bold text-lg'>Hello, Saver!</h3>
-            <p className='text-sm text-blue-500'>
-              Log in to see your savings jar
-            </p>
-          </div>
-
-          <form onSubmit={handleChildLogin} className='space-y-4'>
-            <div className='space-y-2 bg-white p-3 rounded-lg border border-blue-200'>
-              <label
-                htmlFor='jar-id'
-                className='text-sm font-medium flex items-center text-blue-700'
-              >
-                <User className='h-4 w-4 mr-2 text-blue-600' />
-                Your Jar ID
-              </label>
-              <Input
-                id='jar-id'
-                value={jarId}
-                onChange={(e) => setJarId(e.target.value)}
-                placeholder='Enter your Jar ID here'
-                required
-                className='border-blue-200 focus:border-blue-500'
-              />
+          </CardHeader>
+  
+          <CardContent className='bg-white p-6'>
+            <div className='text-center mb-6'>
+              <h3 className='text-blue-600 font-bold text-lg'>Hello, Saver!</h3>
+              <p className='text-sm text-blue-500'>Log in to see your savings jar</p>
             </div>
-
-            <div className='space-y-2 bg-white p-3 rounded-lg border border-blue-200'>
-              <label
-                htmlFor='child-pin'
-                className='text-sm font-medium flex items-center text-blue-700'
-              >
-                <Key className='h-4 w-4 mr-2 text-blue-600' />
-                Your Secret PIN
-              </label>
-              <Input
-                id='child-pin'
-                type='password'
-                value={childPin}
-                onChange={(e) => setChildPin(e.target.value)}
-                placeholder='Enter your PIN here'
-                required
-                className='border-blue-200 focus:border-blue-500'
-              />
-            </div>
-
-            <div className='pt-4'>
+  
+            <form onSubmit={handleChildLogin} className='space-y-4'>
+              <div className='space-y-2'>
+                <label
+                  htmlFor='jar-id'
+                  className='text-sm font-medium text-blue-700 flex items-center'
+                >
+                  <User className='h-4 w-4 mr-2 text-blue-600' />
+                  Jar ID
+                </label>
+                <Input
+                  id='jar-id'
+                  value={jarId}
+                  onChange={(e) => setJarId(e.target.value)}
+                  placeholder='Enter your Jar ID'
+                  required
+                  className='w-full border border-blue-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400'
+                />
+              </div>
+  
+              <div className='space-y-2'>
+                <label
+                  htmlFor='child-pin'
+                  className='text-sm font-medium text-blue-700 flex items-center'
+                >
+                  <Key className='h-4 w-4 mr-2 text-blue-600' />
+                  Secret PIN
+                </label>
+                <Input
+                  id='child-pin'
+                  type='password'
+                  value={childPin}
+                  onChange={(e) => setChildPin(e.target.value)}
+                  placeholder='Enter your PIN'
+                  required
+                  className='w-full border border-blue-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400'
+                />
+              </div>
+  
               <Button
                 type='submit'
-                className='w-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-lg font-bold py-6'
+                className='w-full bg-gradient-to-r from-blue-500 to-purple-500 text-white text-sm font-semibold py-3 rounded-lg hover:from-blue-600 hover:to-purple-600 transition'
                 disabled={loading}
               >
                 {loading ? (
-                  <>
-                    <span className='loading mr-2'></span>
-                    Opening your jar...
-                  </>
+                  <span className='flex items-center justify-center'>
+                    <span className='loader mr-2'></span> Opening your jar...
+                  </span>
                 ) : (
-                  <>
-                    <LogIn className='mr-2 h-5 w-5' />
+                  <span className='flex items-center justify-center'>
+                    <LogIn className='mr-2 h-4 w-4' />
                     Let's Go!
-                  </>
+                  </span>
                 )}
               </Button>
+            </form>
+  
+            <div className='flex justify-center mt-6 space-x-3'>
+              {['🚀', '💰', '🎮', '🎯'].map((emoji, index) => (
+                <span
+                  key={index}
+                  className='text-2xl animate-bounce'
+                  style={{ animationDelay: `${index * 0.15}s` }}
+                >
+                  {emoji}
+                </span>
+              ))}
             </div>
-          </form>
-
-          <div className='flex justify-center mt-4 space-x-2'>
-            {['🚀', '💰', '🎮', '🎯'].map((emoji, i) => (
-              <div
-                key={i}
-                className='text-xl animate-bounce'
-                style={{ animationDelay: `${i * 0.15}s` }}
-              >
-                {emoji}
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
     </div>
+  </div>
+  
   );
 };
 

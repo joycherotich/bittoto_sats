@@ -18,7 +18,7 @@ export default {
         md: '2rem',
       },
       screens: {
-        sm: '640px',
+        sm: '1000px',
         md: '768px',
         lg: '1024px',
         xl: '1280px',
@@ -36,6 +36,15 @@ export default {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
         },
+        animation: {
+          fadeIn: 'fadeIn 0.3s ease-in-out',
+        },
+        keyframes: {
+          fadeIn: {
+            '0%': { opacity: 0, transform: 'scale(0.95)' },
+            '100%': { opacity: 1, transform: 'scale(1)' },
+          }
+        },    
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
@@ -97,7 +106,7 @@ export default {
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
+        // sm: 'calc(var(--radius) - 4px)',
       },
       animation: {
         'fade-in': 'fade-in 0.3s ease-in-out',

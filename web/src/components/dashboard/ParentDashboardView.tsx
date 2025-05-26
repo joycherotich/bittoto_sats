@@ -22,6 +22,7 @@ import {
   ChevronDown,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import MainNav from '../MainNav';
 
 interface ChildData {
   id: string;
@@ -198,150 +199,114 @@ const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
   };
 
   return (
-    <div className='space-y-6 p-4 sm:p-6 max-w-7xl mx-auto'>
-      <div className='mt-2'>
-        <h1 className='text-2xl font-bold text-gray-900 dark:text-white'>
-          Family Dashboard
-        </h1>
-        <p className='text-gray-600 dark:text-gray-400 text-sm mt-1'>
-          Manage your family's savings jars and goals
-        </p>
-      </div>
+<div className="">
+  <MainNav />
 
-      {/* Children's Savings Jars Section */}
-      <section className='bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden'>
-        <div className='flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700'>
-          <div className='flex items-center'>
-            <PiggyBank className='h-5 w-5 text-amber-500 mr-2' />
-            <h2 className='text-xl font-semibold'>Children's Savings Jars</h2>
+  {/* Header */}
+  <div>
+    <h1 className="text-2xl font-serif font-bold text-gray-900 dark:text-white">Family Dashboard</h1>
+    <p className="text-sm font-serif text-gray-600 dark:text-gray-400 mt-1">
+      Manage your family's savings jars and goals
+    </p>
+  </div>
+
+  {/* Children’s Savings Jars */}
+  <section className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 border-b border-gray-100 dark:border-gray-700 space-y-2 sm:space-y-0">
+      <div className="flex items-center space-x-2">
+        <PiggyBank className="h-5 w-5 text-amber-500" />
+        <h2 className="text-xl font-serif font-semibold">Children's Savings Jars</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={toggleChildrenSection}
+          className="h-8 w-8 p-0"
+        >
+          {showChildrenSection ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          <span className="sr-only">{showChildrenSection ? 'Hide children' : 'Show children'}</span>
+        </Button>
+      </div>
+      <Button
+        variant="outline"
+        size="sm"
+        className="text-amber-600 border-amber-600 hover:bg-amber-50"
+        onClick={handleManageChildrenClick}
+      >
+        <Users className="mr-2 font-serif h-4 w-4" />
+        Manage Children
+      </Button>
+    </div>
+
+    {showChildrenSection && (
+      <div className="p-4">
+        {isLoadingChildren ? (
+          <div className="flex justify-center py-6">
+            <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-amber-500" />
+          </div>
+        ) : children.length === 0 ? (
+          <div className="text-center py-6">
+            <div className="bg-gray-100 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4">
+              <Users className="h-8 w-8 text-gray-500 dark:text-gray-400" />
+            </div>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">No savings jars found for your children.</p>
             <Button
-              variant='ghost'
-              size='sm'
-              onClick={toggleChildrenSection}
-              className='ml-2 h-8 w-8 p-0'
+              variant="outline"
+              className="mt-2 text-amber-600 border-amber-600 hover:bg-amber-50"
+              onClick={handleManageChildrenClick}
             >
-              {showChildrenSection ? (
-                <ChevronUp className='h-4 w-4' />
-              ) : (
-                <ChevronDown className='h-4 w-4' />
-              )}
-              <span className='sr-only'>
-                {showChildrenSection ? 'Hide children' : 'Show children'}
-              </span>
+              <Users className="mr-2 font-serif h-4 w-4" />
+              Add Child Account
             </Button>
           </div>
-          <Button
-            variant='outline'
-            size='sm'
-            className='text-amber-600 border-amber-600 hover:bg-amber-50'
-            onClick={handleManageChildrenClick}
-          >
-            <Users className='mr-2 h-4 w-4' />
-            Manage Children
-          </Button>
-        </div>
-
-        {showChildrenSection && (
-          <div className='p-4'>
-            {isLoadingChildren ? (
-              <div className='flex justify-center py-6'>
-                <div className='animate-spin rounded-full h-10 w-10 border-t-2 border-amber-500'></div>
-              </div>
-            ) : !Array.isArray(children) || children.length === 0 ? (
-              <div className='text-center py-6'>
-                <div className='bg-gray-100 dark:bg-gray-700 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4'>
-                  <Users className='h-8 w-8 text-gray-500 dark:text-gray-400' />
-                </div>
-                <p className='text-gray-600 dark:text-gray-400 mb-4'>
-                  No savings jars found for your children.
-                </p>
-                <Button
-                  variant='outline'
-                  className='mt-2 text-amber-600 border-amber-600 hover:bg-amber-50'
-                  onClick={handleManageChildrenClick}
-                >
-                  <Users className='mr-2 h-4 w-4' />
-                  Add Child Account
-                </Button>
-              </div>
-            ) : (
-              <div className='grid grid-cols-1 gap-4'>
-                {children.map((child) => (
-                  <div
-                    key={child.id}
-                    className='bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4'
-                  >
-                    <div className='flex items-center space-x-4'>
-                      <div className='bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full'>
-                        <PiggyBank className='h-8 w-8 text-amber-500' />
-                      </div>
-                      <div>
-                        <h3 className='font-medium text-gray-900 dark:text-white'>
-                          {child.name || 'Unknown'}
-                        </h3>
-                        <p className='text-sm text-gray-500 dark:text-gray-400'>
-                          Jar ID:{' '}
-                          <span className='font-mono'>
-                            {child.jarId || 'N/A'}
-                          </span>
-                        </p>
-                        <p className='text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1'>
-                          Balance: {child.balance?.toLocaleString() || '0'} sats
-                        </p>
-                      </div>
-                    </div>
-                    <div className='flex flex-wrap gap-2 w-full sm:w-auto'>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        className='text-amber-600 hover:text-amber-700 hover:bg-amber-50'
-                        onClick={() => onViewChildDashboard(child.id)}
-                      >
-                        <ArrowRight className='mr-2 h-4 w-4' />
-                        Dashboard
-                      </Button>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        className='text-green-600 hover:text-green-700 hover:bg-green-50'
-                        onClick={() => handleSelectPayment(child.id)}
-                      >
-                        <Plus className='mr-2 h-4 w-4' />
-                        Add Funds
-                      </Button>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        className='text-blue-600 hover:text-blue-700 hover:bg-blue-50'
-                        onClick={() => handleShowChildLearning(child.id)}
-                      >
-                        <Book className='mr-2 h-4 w-4' />
-                        Learning
-                      </Button>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        className='text-purple-600 hover:text-purple-700 hover:bg-purple-50'
-                        onClick={() => handleShowChildAchievements(child.id)}
-                      >
-                        <Award className='mr-2 h-4 w-4' />
-                        Achievements
-                      </Button>
-                    </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {children.map((child) => (
+              <div
+                key={child.id}
+                className="bg-gray-200 dark:bg-gray-700/50 rounded-lg p-4 flex flex-col justify-between"
+              >
+                <div className="flex font-serif text-xl font-extrabold items-start space-x-4">
+                  <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full">
+                    <PiggyBank className="h-8 w-8 text-amber-500" />
                   </div>
-                ))}
+                  <div>
+                    <h3 className="font-medium text-gray-900 dark:text-white">{child.name || 'Unknown'}</h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Jar ID: <span className="font-mono">{child.jarId || 'N/A'}</span>
+                    </p>
+                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mt-1">
+                      Balance: {child.balance?.toLocaleString() || '0'} sats
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap font-serif text-2xl font-semibold mt-4 gap-2">
+                  <Button variant="ghost" size="sm" className="text-amber-600 text-lg  hover:text-amber-700 hover:bg-amber-50" onClick={() => onViewChildDashboard(child.id)}>
+                    <ArrowRight className="mr-2 h-4 w-4" /> Dashboard
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-green-600 text-lg hover:text-green-700 hover:bg-green-50" onClick={() => handleSelectPayment(child.id)}>
+                    <Plus className="mr-2 h-4 w-4" /> Add Funds
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-blue-600 text-lg hover:text-blue-700 hover:bg-blue-50" onClick={() => handleShowChildLearning(child.id)}>
+                    <Book className="mr-2 h-4 w-4" /> Learning
+                  </Button>
+                  <Button variant="ghost" size="sm" className="text-purple-600 text-lg hover:text-purple-700 hover:bg-purple-50" onClick={() => handleShowChildAchievements(child.id)}>
+                    <Award className="mr-2 h-4 w-4" /> Achievements
+                  </Button>
+                </div>
               </div>
-            )}
+            ))}
           </div>
         )}
-      </section>
+      </div>
+    )}
+  </section>
 
       {/* Recent Activity Section */}
       <section className='bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden'>
         <div className='flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700'>
           <div className='flex items-center'>
             <History className='h-5 w-5 text-blue-500 mr-2' />
-            <h2 className='text-xl font-semibold'>Recent Activity</h2>
+            <h2 className='text-xl font-serif font-semibold'>Recent Activity</h2>
             <Button
               variant='ghost'
               size='sm'
@@ -358,17 +323,17 @@ const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
           <Button
             variant='outline'
             size='sm'
-            className='text-blue-600 border-blue-600 hover:bg-blue-50'
+            className='text-blue-600 text-lg font-serif border-blue-600 hover:bg-blue-50'
             onClick={onShowHistory}
           >
-            <History className='mr-2 h-4 w-4' />
+            <History className='mr-2 font-serif h-4 w-4' />
             View All
           </Button>
         </div>
 
         {showRecentActivitySection && (
           <div className='p-4'>
-            <div className='text-center py-4 text-gray-500 dark:text-gray-400'>
+            <div className='text-center py-4 font-serif text-gray-500 dark:text-gray-400'>
               No recent activity to display.
             </div>
           </div>
@@ -380,7 +345,7 @@ const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
         <div className='flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700'>
           <div className='flex items-center'>
             <Target className='h-5 w-5 text-amber-500 mr-2' />
-            <h2 className='text-xl font-semibold'>
+            <h2 className='text-xl font-serif font-semibold'>
               Savings Goals Pending Approval
             </h2>
             {Array.isArray(pendingGoals) && pendingGoals.length > 0 && (
@@ -404,10 +369,10 @@ const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
           <Button
             variant='outline'
             size='sm'
-            className='text-amber-600 border-amber-600 hover:bg-amber-50'
+            className='text-amber-600 font-serif text-lg border-amber-600 hover:bg-amber-50'
             onClick={onShowGoals}
           >
-            <Target className='mr-2 h-4 w-4' />
+            <Target className='mr-2 font-serif h-4 w-4' />
             Manage All Goals
           </Button>
         </div>
@@ -433,7 +398,7 @@ const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
                   <Button
                     variant='default'
                     size='sm'
-                    className='bg-amber-500 hover:bg-amber-600 text-white'
+                    className='bg-amber-500  hover:bg-amber-600 text-white'
                     onClick={onShowGoals}
                   >
                     <Check className='mr-2 h-4 w-4' />
@@ -496,12 +461,12 @@ const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
                 <div className='bg-amber-100 dark:bg-amber-900/30 rounded-full w-16 h-16 mx-auto flex items-center justify-center mb-4'>
                   <Target className='h-8 w-8 text-amber-500' />
                 </div>
-                <p className='text-gray-600 dark:text-gray-400 mb-4'>
+                <p className='text-gray-600 font-serif dark:text-gray-400 mb-4'>
                   No savings goals pending approval.
                 </p>
                 <Button
                   variant='outline'
-                  className='mt-2 text-amber-600 border-amber-600 hover:bg-amber-50'
+                  className='mt-2 text-amber-600 font-serif border-amber-600 hover:bg-amber-50'
                   onClick={onShowGoals}
                 >
                   <Target className='mr-2 h-4 w-4' />
@@ -518,7 +483,7 @@ const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
         <div className='flex justify-between items-center p-4 border-b border-gray-100 dark:border-gray-700'>
           <div className='flex items-center'>
             <BookOpen className='h-5 w-5 text-indigo-500 mr-2' />
-            <h2 className='text-xl font-semibold'>Family Resources</h2>
+            <h2 className='text-xl font-serif font-semibold'>Family Resources</h2>
             <Button
               variant='ghost'
               size='sm'
@@ -540,33 +505,38 @@ const ParentDashboardView: React.FC<ParentDashboardViewProps> = ({
               <div className='bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4'>
                 <div className='flex items-center mb-3'>
                   <Book className='h-6 w-6 text-blue-500 mr-2' />
-                  <h3 className='text-lg font-semibold'>Financial Learning</h3>
+                  <h3 className='text-lg font-serif font-semibold'>Financial Learning</h3>
                 </div>
-                <p className='text-gray-600 dark:text-gray-400 mb-4 text-sm'>
+                <p className='text-gray-600 font-serif dark:text-gray-400 mb-4 text-lg'>
                   Help your children learn about money management and savings
                   with interactive lessons.
                 </p>
-                <Button
-                  variant='outline'
-                  className='text-blue-600 border-blue-600 hover:bg-blue-100'
-                  onClick={handleShowFamilyLearning}
+                    <a
+                  href='https://bitcoiners.africa/learn-section/bitcoin-for-kids/'
+                  target='_blank'
+                  rel='noopener noreferrer'
                 >
-                  <Book className='mr-2 h-4 w-4' />
-                  Explore Learning Resources
-                </Button>
-              </div>
+                  <Button
+                    variant='outline'
+                    className='text-blue-600 text-lg font-serif border-blue-600 hover:bg-blue-100 w-full sm:w-auto'
+                  >
+                    <Book className='mr-2 h-4 w-4' />
+                    Explore Learning Resources
+                  </Button>
+                  </a>
+                  </div>
 
               <div className='bg-green-50 dark:bg-green-900/20 rounded-lg p-4'>
                 <div className='flex items-center mb-3'>
                   <Award className='h-6 w-6 text-green-500 mr-2' />
-                  <h3 className='text-lg font-semibold'>Family Achievements</h3>
+                  <h3 className='text-lg font-serif font-semibold'>Family Achievements</h3>
                 </div>
-                <p className='text-gray-600 dark:text-gray-400 mb-4 text-sm'>
+                <p className='text-gray-600 font-serif dark:text-gray-400 mb-4 text-lg'>
                   Celebrate your family's savings milestones and achievements.
                 </p>
                 <Button
                   variant='outline'
-                  className='text-green-600 border-green-600 hover:bg-green-100'
+                  className='text-green-600 text-lg font-serif border-green-600 hover:bg-green-100'
                   onClick={handleShowFamilyAchievements}
                 >
                   <Award className='mr-2 h-4 w-4' />

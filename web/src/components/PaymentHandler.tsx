@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/UserAuthContext';
 import { QRCodeSVG } from 'qrcode.react';
 import { ArrowLeft, Copy, CheckCircle, Wallet, Zap } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import MainNav from './MainNav';
 
 // Define types for API responses
 interface BalanceResponse {
@@ -510,46 +511,58 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
   };
 
   const renderLightningForm = () => (
-    <Card>
-      <CardHeader className='pb-2'>
-        <CardTitle className='text-lg font-medium'>
-          Create Lightning Invoice
-        </CardTitle>
+  <div className="min-h-screen bg-[#f9fafb] md:ml-56 p-4 sm:p-6 md:p-8">
+ <header className="fixed top-0 left-0 right-0 z-50 bg-blue-800 shadow-md md:ml-56">
+    <div className="max-w-full md:max-w-[calc(100%-14rem)] mx-auto flex justify-between items-center px-6 py-4">
+      <div className="text-2xl font-serif font-bold text-white">Payments</div>
+   
+    </div>
+  </header>
+  <div className="mb-6">
+    <h1 className="text-2xl font-semibold text-gray-800">Lightning Invoices</h1>
+    <p className="text-sm text-gray-500">Generate and manage Lightning Network invoices.</p>
+  </div>
+
+  {/* Invoice Form Card */}
+  <div className="max-w-xl mx-auto">
+    <Card className="shadow-md rounded-2xl">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-lg font-medium">Create Lightning Invoice</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleCreateInvoice} className='space-y-4'>
-          <div className='space-y-2'>
-            <Label htmlFor='amount'>Amount (sats)</Label>
+        <form onSubmit={handleCreateInvoice} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount (sats)</Label>
             <Input
-              id='amount'
-              type='number'
-              min='1'
-              step='1'
-              placeholder='1000'
+              id="amount"
+              type="number"
+              min="1"
+              step="1"
+              placeholder="1000"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               required
             />
           </div>
-          <div className='space-y-2'>
-            <Label htmlFor='memo'>Memo (optional)</Label>
+          <div className="space-y-2">
+            <Label htmlFor="memo">Memo (optional)</Label>
             <Input
-              id='memo'
-              type='text'
-              placeholder='Deposit to SatsJar'
+              id="memo"
+              type="text"
+              placeholder="Deposit to SatsJar"
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
             />
           </div>
-          <Button type='submit' className='w-full' disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading}>
             {loading ? (
               <>
-                <span className='loading mr-2'></span>
+                <span className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"></span>
                 Creating Invoice...
               </>
             ) : (
               <>
-                <Zap className='mr-2 h-4 w-4' />
+                <Zap className="mr-2 h-4 w-4" />
                 Generate Invoice
               </>
             )}
@@ -557,116 +570,132 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
         </form>
       </CardContent>
     </Card>
+  </div>
+</div>
+
   );
 
   const renderLightningInvoice = () => (
-    <Card>
-      <CardHeader className='pb-2'>
-        <CardTitle className='text-lg font-medium'>Lightning Invoice</CardTitle>
-      </CardHeader>
-      <CardContent className='space-y-4'>
-        <div className='flex justify-center'>
-          <div className='bg-white p-4 rounded-lg'>
-            <QRCodeSVG value={invoice} size={200} />
-          </div>
+    <Card className="w-full max-w-md mx-auto">
+    <CardHeader className="pb-2">
+      <CardTitle className="text-lg sm:text-xl font-medium">Lightning Invoice</CardTitle>
+    </CardHeader>
+  
+    <CardContent className="space-y-4">
+      {/* QR Code */}
+      <div className="flex justify-center">
+        <div className="bg-white p-4 rounded-lg shadow-sm">
+          <QRCodeSVG value={invoice} size={200} />
         </div>
-        <div className='space-y-2'>
-          <div className='flex justify-between items-center'>
-            <Label>Invoice</Label>
-            <Button variant='ghost' size='icon' onClick={copyToClipboard}>
-              {copied ? (
-                <CheckCircle className='h-4 w-4 text-green-500' />
-              ) : (
-                <Copy className='h-4 w-4' />
-              )}
-            </Button>
-          </div>
-          <div className='bg-muted p-3 rounded-md'>
-            <p className='text-xs break-all font-mono'>{invoice}</p>
-          </div>
-        </div>
-        <div className='space-y-2'>
-          <Button
-            className='w-full'
-            onClick={checkLightningStatus}
-            disabled={checkingStatus || statusRetries >= MAX_RETRIES}
-          >
-            {checkingStatus ? (
-              <>
-                <span className='loading mr-2'></span>
-                Checking Payment...
-              </>
+      </div>
+  
+      {/* Invoice Text & Copy Button */}
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+          <Label>Invoice</Label>
+          <Button variant="ghost" size="icon" onClick={copyToClipboard}>
+            {copied ? (
+              <CheckCircle className="h-4 w-4 text-green-500" />
             ) : (
-              <>
-                <Zap className='mr-2 h-4 w-4' />
-                Check Payment Status
-              </>
+              <Copy className="h-4 w-4" />
             )}
           </Button>
-          <Button variant='outline' className='w-full' onClick={resetPayment}>
-            Create New Invoice
-          </Button>
         </div>
-      </CardContent>
-    </Card>
+        <div className="bg-muted p-3 rounded-md overflow-x-auto">
+          <p className="text-xs break-all font-mono">{invoice}</p>
+        </div>
+      </div>
+  
+      {/* Buttons */}
+      <div className="space-y-2">
+        <Button
+          className="w-full"
+          onClick={checkLightningStatus}
+          disabled={checkingStatus || statusRetries >= MAX_RETRIES}
+        >
+          {checkingStatus ? (
+            <>
+              <span className="loading mr-2"></span>
+              Checking Payment...
+            </>
+          ) : (
+            <>
+              <Zap className="mr-2 h-4 w-4" />
+              Check Payment Status
+            </>
+          )}
+        </Button>
+        <Button variant="outline" className="w-full" onClick={resetPayment}>
+          Create New Invoice
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+  
   );
 
   const renderMpesaForm = () => (
-    <Card>
-      <CardHeader className='pb-2'>
-        <CardTitle className='text-lg font-medium'>
-          Deposit via M-Pesa
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleMpesaPayment} className='space-y-4'>
-          <div className='space-y-2'>
-            <Label htmlFor='phone'>M-Pesa Phone Number</Label>
-            <Input
-              id='phone'
-              type='text'
-              placeholder='254712345678'
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              required
-            />
-            <p className='text-xs text-muted-foreground'>
-              Enter the phone number registered with M-Pesa (format:
-              254XXXXXXXXX)
-            </p>
-          </div>
-          <div className='space-y-2'>
-            <Label htmlFor='amount'>Amount (KES)</Label>
-            <Input
-              id='amount'
-              type='number'
-              min='10'
-              step='1'
-              placeholder='100'
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required
-            />
-            <p className='text-xs text-muted-foreground'>
-              Minimum amount: 10 KES
-            </p>
-          </div>
-          <Button type='submit' className='w-full' disabled={loading}>
-            {loading ? (
-              <>
-                <span className='loading mr-2'></span>
-                Processing...
-              </>
-            ) : (
-              <>
-                <Wallet className='mr-2 h-4 w-4' />
-                Deposit with M-Pesa
-              </>
-            )}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
+    <Card className="w-full max-w-md mx-auto">
+    <CardHeader className="pb-2">
+      <CardTitle className="text-lg sm:text-xl font-medium">
+        Deposit via M-Pesa
+      </CardTitle>
+    </CardHeader>
+  
+    <CardContent>
+      <form onSubmit={handleMpesaPayment} className="space-y-4">
+        {/* Phone Number */}
+        <div className="space-y-2">
+          <Label htmlFor="phone">M-Pesa Phone Number</Label>
+          <Input
+            id="phone"
+            type="text"
+            placeholder="254712345678"
+            value={phoneNumber}
+            onChange={(e) => setPhoneNumber(e.target.value)}
+            required
+            className="w-full"
+          />
+          <p className="text-xs text-muted-foreground">
+            Enter the phone number registered with M-Pesa (format: 254XXXXXXXXX)
+          </p>
+        </div>
+  
+        {/* Amount */}
+        <div className="space-y-2">
+          <Label htmlFor="amount">Amount (KES)</Label>
+          <Input
+            id="amount"
+            type="number"
+            min="10"
+            step="1"
+            placeholder="100"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            required
+            className="w-full"
+          />
+          <p className="text-xs text-muted-foreground">Minimum amount: 10 KES</p>
+        </div>
+  
+        {/* Submit Button */}
+        <Button type="submit" className="w-full" disabled={loading}>
+          {loading ? (
+            <>
+              <span className="loading mr-2"></span>
+              Processing...
+            </>
+          ) : (
+            <>
+              <Wallet className="mr-2 h-4 w-4" />
+              Deposit with M-Pesa
+            </>
+          )}
+        </Button>
+      </form>
+    </CardContent>
+  </Card>
+  
   );
 
   const renderMpesaInProgress = () => (
@@ -734,28 +763,41 @@ const PaymentHandler: React.FC<PaymentHandlerProps> = ({
   );
 
   return (
-    <div className='space-y-4 animate-fade-in'>
-      <div className='flex items-center'>
-        <Button variant='ghost' size='icon' onClick={onBack}>
-          <ArrowLeft className='h-4 w-4' />
-        </Button>
-        <h2 className='text-xl font-semibold ml-2'>
-          {type === 'lightning' ? 'Lightning Deposit' : 'M-Pesa Deposit'}
-          {childId && isParent ? ' (Child Account)' : ''}
-        </h2>
-      </div>
-      {type === 'lightning'
-        ? !invoice
-          ? renderLightningForm()
-          : paymentStatus === 'completed'
-          ? renderPaymentCompleted()
-          : renderLightningInvoice()
-        : paymentStatus === 'completed'
-        ? renderPaymentCompleted()
-        : transactionId
-        ? renderMpesaInProgress()
-        : renderMpesaForm()}
+    <div className="space-y-4 animate-fade-in px-4 sm:px-6 md:px-8">
+    {/* Navigation */}
+    <MainNav />
+  
+    {/* Back button and heading */}
+    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4">
+      <Button variant="ghost" size="icon" onClick={onBack}>
+        <ArrowLeft className="h-4 w-4" />
+      </Button>
+      <h2 className="text-lg sm:text-xl font-semibold">
+        {type === 'lightning' ? 'Lightning Deposit' : 'M-Pesa Deposit'}
+        {childId && isParent ? ' (Child Account)' : ''}
+      </h2>
     </div>
+  
+    {/* Conditional rendering of forms or messages */}
+    <div>
+      {type === 'lightning' ? (
+        !invoice ? (
+          renderLightningForm()
+        ) : paymentStatus === 'completed' ? (
+          renderPaymentCompleted()
+        ) : (
+          renderLightningInvoice()
+        )
+      ) : paymentStatus === 'completed' ? (
+        renderPaymentCompleted()
+      ) : transactionId ? (
+        renderMpesaInProgress()
+      ) : (
+        renderMpesaForm()
+      )}
+    </div>
+  </div>
+  
   );
 };
 

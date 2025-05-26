@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ChevronDown, ChevronUp, PlusCircle } from 'lucide-react';
+import MainNav from '@/components/MainNav';
 
 interface Child {
   id: string;
@@ -41,6 +42,7 @@ const DebugInfo = ({
 
   return (
     <div className='bg-gray-100 dark:bg-gray-800 p-2 mb-4 rounded text-xs'>
+      <MainNav />
       <details>
         <summary className='cursor-pointer font-medium'>Debug Info</summary>
         <div className='mt-2 space-y-1'>
@@ -244,11 +246,12 @@ const SavingsPage: React.FC = () => {
   return (
     <div className='container mx-auto py-6 space-y-4'>
       <div className='flex justify-between items-center'>
-        <Button variant='ghost' onClick={handleBackToDashboard}>
-          <ArrowLeft className='h-4 w-4 mr-2' />
-          Back to Dashboard
-        </Button>
-        <h1 className='text-2xl font-bold'>Savings</h1>
+      <header className="fixed top-0 left-0 right-0 z-50 bg-yellow-600 shadow-md md:ml-56">
+    <div className="max-w-full md:max-w-[calc(100%-14rem)] mx-auto flex justify-between items-center px-6 py-4">
+      <div className="text-2xl font-serif font-bold text-white">Savings</div>
+   
+    </div>
+  </header>
         <div className='w-10'></div> {/* Empty div for flex spacing */}
       </div>
 
@@ -266,167 +269,166 @@ const SavingsPage: React.FC = () => {
 
       {/* Child selector for parents */}
       {isParent && (
-        <Card className='mb-4'>
-          <CardHeader>
-            <CardTitle className='text-lg'>Select Child</CardTitle>
-            <CardDescription>
-              Choose which child's savings to manage
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className='flex items-center space-x-2'>
-                <div className='animate-spin h-4 w-4 border-2 border-amber-500 rounded-full border-t-transparent'></div>
-                <span className='text-sm text-muted-foreground'>
-                  Loading children...
-                </span>
-              </div>
-            ) : children.length === 0 ? (
-              <div className='space-y-4'>
-                <p className='text-sm text-muted-foreground'>
-                  No children found. Please add a child first.
-                </p>
-                <Button
-                  onClick={() => navigate('/children')}
-                  variant='outline'
-                  className='w-full'
-                >
-                  <PlusCircle className='mr-2 h-4 w-4' />
-                  Add Child
-                </Button>
-              </div>
-            ) : (
-              <>
-                {/* Debug info */}
-                <div className='text-xs text-muted-foreground mb-2'>
-                  Found {children.length} children
-                </div>
-
-                {/* Use a more reliable dropdown implementation */}
-                <div className='relative'>
-                  <Select
-                    value={selectedChildId || ''}
-                    onValueChange={handleChildChange}
+    <div className="">
+    <Card className="w-full max-w-2xl mx-auto mb-2">
+      <CardHeader>
+        <CardTitle className="text-lg">Select Child</CardTitle>
+        <CardDescription>
+          Choose which child's savings to manage
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <div className="flex items-center space-x-2">
+            <div className="animate-spin h-4 w-4 border-2 border-amber-500 rounded-full border-t-transparent"></div>
+            <span className="text-sm text-muted-foreground">
+              Loading children...
+            </span>
+          </div>
+        ) : children.length === 0 ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              No children found. Please add a child first.
+            </p>
+            <Button
+              onClick={() => navigate('/children')}
+              variant="outline"
+              className="w-full"
+            >
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Child
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="text-xs text-muted-foreground mb-2">
+              Found {children.length} children
+            </div>
+  
+            {/* Dropdown */}
+            <div className="relative">
+              <Select
+                value={selectedChildId || ''}
+                onValueChange={handleChildChange}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a child">
+                    {selectedChildId
+                      ? children.find((c) => c.id === selectedChildId)?.name || 'Select a child'
+                      : 'Select a child'}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {children.map((child) => (
+                    <SelectItem key={child.id} value={child.id}>
+                      {child.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+  
+            {/* Fallback buttons */}
+            <div className="mt-4 space-y-2">
+              <p className="text-sm text-muted-foreground">Or select directly:</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {children.map((child) => (
+                  <Button
+                    key={child.id}
+                    variant={selectedChildId === child.id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handleChildChange(child.id)}
+                    className={
+                      selectedChildId === child.id
+                        ? 'bg-amber-500 hover:bg-amber-600'
+                        : ''
+                    }
                   >
-                    <SelectTrigger className='w-full'>
-                      <SelectValue placeholder='Select a child'>
-                        {selectedChildId
-                          ? children.find((c) => c.id === selectedChildId)
-                              ?.name || 'Select a child'
-                          : 'Select a child'}
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {children.map((child) => (
-                        <SelectItem key={child.id} value={child.id}>
-                          {child.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Fallback buttons in case dropdown doesn't work */}
-                <div className='mt-4 space-y-2'>
-                  <p className='text-sm text-muted-foreground'>
-                    Or select directly:
-                  </p>
-                  <div className='grid grid-cols-2 gap-2'>
-                    {children.map((child) => (
-                      <Button
-                        key={child.id}
-                        variant={
-                          selectedChildId === child.id ? 'default' : 'outline'
-                        }
-                        size='sm'
-                        onClick={() => handleChildChange(child.id)}
-                        className={
-                          selectedChildId === child.id
-                            ? 'bg-amber-500 hover:bg-amber-600'
-                            : ''
-                        }
-                      >
-                        {child.name}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+                    {child.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  </div>
+  
       )}
 
       {/* Only show tabs if we have a valid child (either the logged-in child or a selected child for parents) */}
       {(isChild || (isParent && selectedChildId)) && (
-        <>
-          <SavingsHelpCard />
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className='grid w-full grid-cols-4'>
-              {isChild && <TabsTrigger value='summary'>Summary</TabsTrigger>}
-              <TabsTrigger value='plans'>Automatic Plans</TabsTrigger>{' '}
-              {/* Clarify this is for automatic savings */}
-              <TabsTrigger value='goals'>Savings Goals</TabsTrigger>{' '}
-              {/* Clarify this is for goals */}
-              <TabsTrigger value='history'>History</TabsTrigger>
-            </TabsList>
-
-            {isChild && (
-              <TabsContent value='summary' className='mt-6'>
-                <SavingsSummary />
-              </TabsContent>
-            )}
-
-            <TabsContent value='plans' className='mt-6'>
-              <div className='mb-4'>
-                <h2 className='text-xl font-semibold'>
-                  Automatic Savings Plans
-                </h2>
-                <p className='text-sm text-muted-foreground'>
-                  Set up recurring transfers to automatically save toward your
-                  goals
-                </p>
-              </div>
-              <SavingsPlans
-                childId={isParent ? selectedChildId || undefined : undefined}
-              />
-            </TabsContent>
-
-            <TabsContent value='goals' className='mt-6'>
-              <div className='mb-4'>
-                <h2 className='text-xl font-semibold'>Savings Goals</h2>
-                <p className='text-sm text-muted-foreground'>
-                  Create and track progress toward your savings targets
-                </p>
-              </div>
-              <GoalSetting
-                childId={isParent ? selectedChildId || undefined : undefined}
-                onBack={() => {}}
-              />
-            </TabsContent>
-
-            <TabsContent value='history' className='mt-6'>
-              <SavingsHistory
-                childId={isParent ? selectedChildId || undefined : undefined}
-                onBack={() => setActiveTab('summary')}
-              />
-            </TabsContent>
-          </Tabs>
-        </>
+       <div className="p-4 sm:p-6 md:p-8 md:ml-56 min-h-screen bg-[#f9fafb]">
+       <div className="w-full max-w-5xl mx-auto">
+         <SavingsHelpCard />
+     
+         <Tabs value={activeTab} onValueChange={setActiveTab}>
+           <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-2 overflow-x-auto">
+             {isChild && <TabsTrigger value="summary">Summary</TabsTrigger>}
+             <TabsTrigger value="plans">Automatic Plans</TabsTrigger>
+             <TabsTrigger value="goals">Savings Goals</TabsTrigger>
+             <TabsTrigger value="history">History</TabsTrigger>
+           </TabsList>
+     
+           {isChild && (
+             <TabsContent value="summary" className="mt-6">
+               <SavingsSummary />
+             </TabsContent>
+           )}
+     
+           <TabsContent value="plans" className="mt-6">
+             <div className="mb-4">
+               <h2 className="text-xl font-semibold">Automatic Savings Plans</h2>
+               <p className="text-sm text-muted-foreground">
+                 Set up recurring transfers to automatically save toward your goals
+               </p>
+             </div>
+             <SavingsPlans
+               childId={isParent ? selectedChildId || undefined : undefined}
+             />
+           </TabsContent>
+     
+           <TabsContent value="goals" className="mt-6">
+             <div className="mb-4">
+               <h2 className="text-xl font-semibold">Savings Goals</h2>
+               <p className="text-sm text-muted-foreground">
+                 Create and track progress toward your savings targets
+               </p>
+             </div>
+             <GoalSetting
+               childId={isParent ? selectedChildId || undefined : undefined}
+               onBack={() => {}}
+             />
+           </TabsContent>
+     
+           <TabsContent value="history" className="mt-6">
+             <SavingsHistory
+               childId={isParent ? selectedChildId || undefined : undefined}
+               onBack={() => setActiveTab('summary')}
+             />
+           </TabsContent>
+         </Tabs>
+       </div>
+     </div>
+     
       )}
 
       {/* Show message if parent has no children */}
       {isParent && children.length === 0 && !loading && (
-        <Card>
-          <CardContent className='py-8 text-center'>
-            <p className='mb-4'>
-              You need to add a child before you can manage savings plans.
-            </p>
-            <Button onClick={() => navigate('/children')}>
-              Manage Children
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="p-4 sm:p-6 md:p-8 md:ml-56 min-h-screen bg-[#f9fafb]">
+  <div className="max-w-md mx-auto">
+    <Card>
+      <CardContent className="py-8 text-center">
+        <p className="mb-4 text-sm sm:text-base text-muted-foreground">
+          You need to add a child before you can manage savings plans.
+        </p>
+        <Button onClick={() => navigate('/children')}>Manage Children</Button>
+      </CardContent>
+    </Card>
+  </div>
+</div>
+
       )}
     </div>
   );

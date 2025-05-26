@@ -242,46 +242,9 @@ const MainApp = () => {
   };
 
   return (
-    <div className='min-h-screen bg-gradient-to-br from-background to-gray-50 dark:from-background dark:to-gray-900 transition-colors duration-300'>
-      <div className='max-w-md mx-auto pb-16'>
-        <header className='p-4 text-center relative'>
-          <div className='absolute top-4 right-4'>
-            <ThemeToggle />
-          </div>
-          <h1 className='text-2xl font-bold'>
-            BIT Toto <span className='text-muted-foreground'></span>
-          </h1>
-          <p className='text-muted-foreground text-sm'>
-            Learn to save with Bitcoin
-          </p>
-          {user && (
-            <div className='mt-2'>
-              <span className='bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100 text-xs font-medium px-2.5 py-0.5 rounded-full'>
-                {isParent
-                  ? selectedChildId
-                    ? 'Child View'
-                    : 'Parent Account'
-                  : 'Child Account'}
-              </span>
-              <span className='text-xs text-gray-500 dark:text-gray-400 ml-2'>
-                {user.name}
-              </span>
-              {isParent && selectedChildId && (
-                <button
-                  onClick={() => {
-                    setSelectedChildId(null);
-                    setCurrentSection('dashboard');
-                    updateBalance(); // Refresh balance when returning to parent dashboard
-                  }}
-                  className='ml-2 text-xs text-blue-500 hover:text-blue-700'
-                >
-                  (Back to Family Dashboard)
-                </button>
-              )}
-            </div>
-          )}
-        </header>
-
+    <div className=''>
+      <div className=''>
+       
         {renderSection()}
 
         {isAuthenticated && <MainNav />}

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useChildManagement } from '@/utils/childManagement';
 import AddChildButton from './AddChildButton';
+import MainNav from './MainNav';
 
 interface Child {
   id: string;
@@ -23,6 +24,8 @@ const ChildList: React.FC = () => {
   useEffect(() => {
     fetchChildren();
   }, []);
+
+  
 
   const fetchChildren = async () => {
     try {
@@ -50,6 +53,7 @@ const ChildList: React.FC = () => {
       },
     });
   };
+  
 
   const handleChildAdded = () => {
     // Refresh the children list
@@ -61,46 +65,64 @@ const ChildList: React.FC = () => {
   }
 
   return (
-    <div className='space-y-4'>
-      <div className='flex justify-end mb-4'>
+    <div className="min-h-screen bg-[#f9fafb] md:ml-56 p-4 sm:p-6 md:p-8 transition-all">
+       <header className="fixed top-0 left-0 right-0 z-50 bg-yellow-600 shadow-md md:ml-56">
+    <div className="max-w-full md:max-w-[calc(100%-14rem)] mx-auto flex justify-between items-center px-6 py-4">
+      <div className="text-2xl font-serif font-bold text-white">Children</div>
+   
+    </div>
+  </header>
+    {/* Top Action Bar */}
+    <div className="flex justify-end mb-6">
+      <AddChildButton
+        onSuccess={handleChildAdded}
+        className="bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 text-white font-semibold px-5 py-2 rounded-xl shadow transition-all duration-300"
+      />
+    </div>
+  
+    {/* Empty State */}
+    {children.length === 0 ? (
+      <div className="text-center bg-white p-10 rounded-2xl shadow-md">
+        <p className="text-xl font-semibold text-gray-700 mb-6">
+          No Child Accounts Yet
+        </p>
         <AddChildButton
+          buttonText="Create Your First Child Account"
           onSuccess={handleChildAdded}
-          className='bg-green-600 hover:bg-green-700'
+          size="lg"
+          className="bg-gradient-to-r from-green-500 to-green-700 hover:from-green-600 hover:to-green-800 text-white font-semibold px-6 py-3 rounded-xl shadow transition duration-300"
         />
       </div>
-
-      {children.length === 0 ? (
-        <div className='text-center py-8'>
-          <p className='text-lg mb-4'>No children accounts yet</p>
-          <AddChildButton
-            buttonText='Create Your First Child Account'
-            onSuccess={handleChildAdded}
-            size='lg'
-            className='bg-green-600 hover:bg-green-700'
-          />
-        </div>
-      ) : (
-        children.map((child) => (
-          <Card key={child.id} className='mb-4'>
-            <CardContent className='p-6'>
-              <div className='flex justify-between items-center'>
-                <div>
-                  <h3 className='text-lg font-semibold'>{child.name}</h3>
-                  <p className='text-sm text-gray-500'>Age: {child.age}</p>
-                  <p className='text-xs text-gray-400'>Jar ID: {child.jarId}</p>
-                </div>
-                <Button
-                  onClick={() => handleViewDashboard(child.id)}
-                  className='bg-amber-500 hover:bg-amber-600'
-                >
-                  View Dashboard
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))
-      )}
-    </div>
+    ) : (
+      <div className="grid gap-6 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+        {children.map((child) => (
+          <div
+            key={child.id}
+            className="bg-white rounded-2xl shadow-md hover:shadow-xl transform hover:-translate-y-1 transition-all duration-300 p-6 flex flex-col justify-between"
+          >
+            <div>
+              <h3 className="text-xl font-serif font-bold text-gray-800">{child.name}</h3>
+              <p className="text-m font-serif text-gray-600 mt-1">Age: {child.age}</p>
+              <p className="text-sm font-serif text-gray-400 mt-1">Jar ID: {child.jarId}</p>
+            </div>
+            <div className="mt-6">
+              <Button
+                onClick={() => handleViewDashboard(child.id)}
+                className="w-full text-xl font-serif bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2 rounded-lg transition duration-300"
+              >
+                View Dashboard
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+  
+  
+  
+  
+  
   );
 };
 

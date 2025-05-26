@@ -404,99 +404,91 @@ const EnhancedDashboard: React.FC<EnhancedDashboardProps> = ({
   };
 
   return (
-    <div className='space-y-4 animate-fade-in'>
-      <Card className='border-border'>
-        <CardContent className='p-0'>
-          <div className='flex items-center justify-between p-4 bg-amber-500 text-white rounded-t-lg'>
-            <div className='flex items-center'>
-              <PiggyBank className='h-6 w-6 mr-2' />
-              <div>
-                <h2 className='text-lg font-bold'>
-                  {isChild || selectedChildId
-                    ? `${
-                        selectedChildName || user?.name || 'Child'
-                      }'s Savings Jar`
-                    : 'Family Savings'}
-                </h2>
-                <p className='text-sm opacity-90'>
-                  {isChild || selectedChildId
-                    ? 'Track your savings and goals'
-                    : 'Manage your family savings'}
-                </p>
-              </div>
-            </div>
-            <div className='flex items-center space-x-2'>
-              <Button
-                variant='ghost'
-                size='icon'
-                className='text-white hover:bg-amber-600 hover:text-white'
-                onClick={handleRefreshClick}
-                disabled={isLoadingBalance}
-              >
-                <RefreshCcw
-                  className={`h-5 w-5 ${
-                    isLoadingBalance ? 'animate-spin' : ''
-                  }`}
-                />
-              </Button>
-              {onLogout && (
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  className='text-white hover:bg-amber-600 hover:text-white'
-                  onClick={onLogout}
-                >
-                  <LogOut className='h-5 w-5' />
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div className='p-4'>
-            {isChild || selectedChildId ? (
-              <ChildDashboardView
-                childId={selectedChildId || user?.id || ''}
-                childName={selectedChildName || user?.name || ''}
-                jarId={children.find((c) => c.id === selectedChildId)?.jarId}
-                balance={balance}
-                kesAmount={kesAmount}
-                goals={childGoals}
-                onShowGoals={onShowGoals || (() => {})}
-                onShowHistory={onShowHistory}
-                onShowMpesa={() =>
-                  handleShowMpesa(selectedChildId || user?.id || '')
-                }
-                onShowLightning={() =>
-                  handleShowLightning(selectedChildId || user?.id || '')
-                }
-                onBackToFamily={handleBackToFamily}
-                isParent={isParent}
-                handleApproveGoal={handleApproveGoal}
-                isLoadingBalance={isLoadingBalance}
-                onShowLearning={onShowLearning}
-                onShowAchievements={onShowAchievements}
-              />
-            ) : (
-              isParent && (
-                <ParentDashboardView
-                  children={children}
-                  pendingGoals={pendingGoals}
-                  isLoadingChildren={isLoadingChildren}
-                  onManageChildren={handleManageChildren}
-                  onShowHistory={onShowHistory}
-                  onShowGoals={onShowGoals}
-                  onViewChildDashboard={handleViewChildDashboard}
-                  handleApproveGoal={handleApproveGoal}
-                  handleSelectPayment={handleSelectPayment}
-                  onShowLearning={handleShowLearning}
-                  onShowAchievements={handleShowAchievements}
-                />
-              )
-            )}
-          </div>
-        </CardContent>
-      </Card>
+<div className="md:ml-56">
+  <div className="w-full bg-yellow-600 text-black p-4  flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="flex items-start sm:items-center gap-3">
+      <PiggyBank className="h-6 w-6 flex-shrink-0" />
+      <div>
+        <h2 className="text-base font-serif sm:text-lg font-bold">
+          {isChild || selectedChildId
+            ? `${selectedChildName || user?.name || 'Child'}'s Savings Jar`
+            : 'Family Savings'}
+        </h2>
+        <p className="text-sm font-serif opacity-90">
+          {isChild || selectedChildId
+            ? 'Track your savings and goals'
+            : 'Manage your family savings'}
+        </p>
+      </div>
     </div>
+
+    <div className="flex items-center gap-2 self-end sm:self-auto">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-white hover:bg-amber-600 hover:text-white"
+        onClick={handleRefreshClick}
+        disabled={isLoadingBalance}
+      >
+        <RefreshCcw className={`h-5 w-5 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+      </Button>
+      {onLogout && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-white hover:bg-amber-600 hover:text-white"
+          onClick={onLogout}
+        >
+          <LogOut className="h-5 w-5" />
+        </Button>
+      )}
+    </div>
+  </div>
+
+  {/* Animated page content */}
+  <div className="space-y-8 sm:space-y-12 animate-fade-in px-4">
+    <CardContent className="p-0">
+      {/* Dashboard view */}
+      {isChild || selectedChildId ? (
+        <ChildDashboardView
+          childId={selectedChildId || user?.id || ''}
+          childName={selectedChildName || user?.name || ''}
+          jarId={children.find((c) => c.id === selectedChildId)?.jarId}
+          balance={balance}
+          kesAmount={kesAmount}
+          goals={childGoals}
+          onShowGoals={onShowGoals || (() => {})}
+          onShowHistory={onShowHistory}
+          onShowMpesa={() => handleShowMpesa(selectedChildId || user?.id || '')}
+          onShowLightning={() => handleShowLightning(selectedChildId || user?.id || '')}
+          onBackToFamily={handleBackToFamily}
+          isParent={isParent}
+          handleApproveGoal={handleApproveGoal}
+          isLoadingBalance={isLoadingBalance}
+          onShowLearning={onShowLearning}
+          onShowAchievements={onShowAchievements}
+        />
+      ) : (
+        isParent && (
+          <ParentDashboardView
+            children={children}
+            pendingGoals={pendingGoals}
+            isLoadingChildren={isLoadingChildren}
+            onManageChildren={handleManageChildren}
+            onShowHistory={onShowHistory}
+            onShowGoals={onShowGoals}
+            onViewChildDashboard={handleViewChildDashboard}
+            handleApproveGoal={handleApproveGoal}
+            handleSelectPayment={handleSelectPayment}
+            onShowLearning={handleShowLearning}
+            onShowAchievements={handleShowAchievements}
+          />
+        )
+      )}
+    </CardContent>
+  </div>
+</div>
+
   );
 };
 

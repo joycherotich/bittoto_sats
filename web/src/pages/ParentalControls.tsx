@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/UserAuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import ThemeToggle from '@/components/ThemeToggle';
+import MainNav from '@/components/MainNav';
 
 const ParentalControls = () => {
   const { user } = useAuth();
@@ -62,27 +63,25 @@ const ParentalControls = () => {
   if (!user || user.role !== 'parent') {
     return (
       <div className="p-4 text-center">
-        <h2 className="text-lg font-semibold mb-4">Parental Controls</h2>
-        <p className="mb-4">You need to be logged in as a parent to access this page.</p>
-        <Button onClick={() => navigate('/')}>Return to Home</Button>
+        {/* <h2 className="text-lg font-semibold mb-4">Parental Controls</h2> */}
+        {/* <p className="mb-4">You need to be logged in as a parent to access this page.</p> */}
+        {/* <Button onClick={() => navigate('/')}>Return to Home</Button> */}
       </div>
     );
   }
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-background to-gray-50 dark:from-background dark:to-gray-900 transition-colors duration-300">
-      <div className="max-w-3xl mx-auto p-4">
-        <header className="flex items-center justify-between mb-6">
-          <div className="flex items-center">
-            <Button variant="ghost" onClick={() => navigate('/')} className="mr-2">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h1 className="text-2xl font-bold">Parental Controls</h1>
-          </div>
-          <ThemeToggle />
-        </header>
+      <MainNav />
+      <div className="max-w-3xl mx-auto p-2">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-blue-800 shadow-md md:ml-56">
+    <div className="max-w-full md:max-w-[calc(100%-14rem)] mx-auto flex justify-between items-center px-6 py-4">
+      <div className="text-2xl font-serif font-bold text-white">Settings</div>
+   
+    </div>
+  </header>
         
-        <Tabs defaultValue="pin" className="space-y-4">
+        <Tabs defaultValue="pin" className="space-y-4 mt-24 font-serif">
           <TabsList className="grid grid-cols-4">
             <TabsTrigger value="pin">PIN Security</TabsTrigger>
             <TabsTrigger value="withdrawals">Withdrawals</TabsTrigger>

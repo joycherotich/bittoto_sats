@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Award, Star, CircleCheck } from 'lucide-react';
+import MainNav from './MainNav';
 
 interface Achievement {
   id: string;
@@ -13,9 +14,6 @@ interface Achievement {
   icon: 'star' | 'award' | 'check';
 }
 
-interface AchievementsProps {
-  onBack: () => void;
-}
 
 const Achievements: React.FC<AchievementsProps> = ({ onBack }) => {
   // Mock achievements data
@@ -74,17 +72,21 @@ const Achievements: React.FC<AchievementsProps> = ({ onBack }) => {
   };
 
   return (
-    <div className='space-y-4 p-4 animate-fade-in'>
-      <Button variant='ghost' onClick={onBack} className='mb-4'>
-        <ArrowLeft className='mr-2 h-4 w-4' />
-        Back to Dashboard
-      </Button>
-
+    <div className="min-h-screen bg-[#f9fafb] md:ml-56 p-4 sm:p-6 md:p-8 transition-all">
+  
+<MainNav />      
+<header className="fixed top-0 left-0 right-0 z-50 bg-yellow-600 shadow-md md:ml-56">
+    <div className="max-w-full md:max-w-[calc(100%-14rem)] mx-auto flex justify-between items-center px-6 py-4">
+      <div className="text-2xl font-serif font-bold text-white">Children</div>
+   
+    </div>
+  </header>
+   
       <Card>
-        <CardHeader className='bg-gradient-to-r from-purple-500 to-blue-500 text-white'>
+        <CardHeader className='bg-gradient-to-r font-serif mt-16 from-purple-500 to-blue-500 text-white'>
           <CardTitle className='flex items-center'>
-            <Award className='mr-2 h-5 w-5' />
-            Your Achievements
+            <Award className='mr-2 font-serif h-5 w-5' />
+             Achievements
           </CardTitle>
         </CardHeader>
         <CardContent className='p-6'>
@@ -110,7 +112,7 @@ const Achievements: React.FC<AchievementsProps> = ({ onBack }) => {
                       {renderIcon(achievement.icon)}
                     </div>
                     <div>
-                      <h3 className='font-semibold'>{achievement.name}</h3>
+                      <h3 className='font-serif font-semibold'>{achievement.name}</h3>
                       <p className='text-sm text-gray-600'>
                         {achievement.description}
                       </p>
