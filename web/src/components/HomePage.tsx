@@ -40,7 +40,7 @@ const HomePage: React.FC = () => {
 
       {/* Header */}
       <header className="flex justify-between items-center px-6 py-8 md:px-12">
-        <h1 className="text-5xl font-extrabold font-serif text-yellow-400">SatsJar</h1>
+        <h1 className="text-3xl font-extrabold font-serif text-yellow-400">SatsJar</h1>
         <div className="space-x-4">
           <button
             className="bg-white text-black px-2 py-2 rounded-lg font-serif hover:bg-gray-300 transition-all duration-200 font-medium"
@@ -108,7 +108,7 @@ const HomePage: React.FC = () => {
               <p className="text-m text-green-600 font-bold">+23.00₿</p>
             </div>
             <div className="bg-red-100 p-4 rounded-xl shadow-md">
-              <p className="text-gray-700 text-sm font-serif">withdrawals</p>
+              <p className="text-gray-700 text-sm font-serif">Account</p>
               <p className="text-m text-red-600 font-bold">-12.00₿</p>
             </div>
           </div>
