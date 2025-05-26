@@ -74,7 +74,7 @@ const ParentalControls = () => {
     <div className="min-h-screen bg-gradient-to-br from-background to-gray-50 dark:from-background dark:to-gray-900 transition-colors duration-300">
       <MainNav />
       <div className="max-w-3xl mx-auto p-2">
-      <header className="fixed top-0 left-0 right-0 z-50 bg-blue-800 shadow-md md:ml-56">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-yellow-700 shadow-md md:ml-56">
     <div className="max-w-full md:max-w-[calc(100%-14rem)] mx-auto flex justify-between items-center px-6 py-4">
       <div className="text-2xl font-serif font-bold text-white">Settings</div>
    

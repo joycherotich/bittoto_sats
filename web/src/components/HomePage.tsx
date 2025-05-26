@@ -6,6 +6,7 @@ import child from '../assets/side.jpeg';
 import mother from '../assets/mjk.jpg';
 import crypto from '../assets/home.jpg';
 import btc from '../assets/pp.jpg';
+import lower from '../assets/ppl.jpg';
 
 enum AuthView {
   NONE,
@@ -205,7 +206,7 @@ const HomePage: React.FC = () => {
 </div>
 
           <img
-            src="https://images.unsplash.com/photo-1507525428034-b723cf961d3e"
+            src={lower}
             alt="Ocean"
             className="rounded-xl shadow-md w-full h-auto object-cover"
           />
