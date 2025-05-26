@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import LoginForm from './LoginForm';
 import ChildLogin from './ChildLogin';
 import RegisterForm from './RegisterForm';
-import child from '../assets/kido.jpeg';
-import mother from '../assets/mum.jpeg';
-import crypto from '../assets/btc.jpeg';
-import btc from '../assets/no.jpeg';
+import child from '../assets/side.jpeg';
+import mother from '../assets/mjk.jpg';
+import crypto from '../assets/home.jpg';
+import btc from '../assets/pp.jpg';
 
 enum AuthView {
   NONE,
