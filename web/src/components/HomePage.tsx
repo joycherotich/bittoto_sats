@@ -46,7 +46,7 @@ const HomePage: React.FC = () => {
   </div> */}
       {/* Header */}
       <header className="flex justify-between items-center px-6 py-8 md:px-12">
-        <h1 className="text-5xl font-extrabold font-serif text-yellow-400">SatsJar</h1>
+        <h1 className="text-2xl font-extrabold font-serif text-yellow-400">SatsJar</h1>
         <div className="space-x-4">
           <button
             className="bg-white text-black px-5 py-2 rounded-lg font-serif hover:bg-gray-300 transition-all duration-200 font-medium"
